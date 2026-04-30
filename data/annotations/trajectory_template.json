@@ -1,0 +1,73 @@
+{
+  "format_version": "1.0",
+  "description": "羽毛球轨迹标注（多帧序列）",
+  "session_id": "session_20260327_100000",
+  "camera_id": 0,
+  "fps": 60,
+  "image_width": 1280,
+  "image_height": 720,
+  "trajectory_id": "traj_001",
+  "shot_type": "forehand_clear",
+  "server_id": "robot",
+  "receiver_id": "player_A",
+  "trajectory": [
+    {
+      "frame_index": 0,
+      "timestamp_s": 0.0,
+      "ball_center_px": {
+        "x": 640.0,
+        "y": 200.0
+      },
+      "ball_radius_px": 8.0,
+      "visibility": 2,
+      "motion_blur_level": 0,
+      "annotator_confidence": 3
+    },
+    {
+      "frame_index": 1,
+      "timestamp_s": 0.0167,
+      "ball_center_px": {
+        "x": 630.0,
+        "y": 195.0
+      },
+      "ball_radius_px": 8.5,
+      "visibility": 2,
+      "motion_blur_level": 1,
+      "annotator_confidence": 3
+    },
+    {
+      "__comment__": "模糊/不可见帧示例",
+      "frame_index": 5,
+      "timestamp_s": 0.083,
+      "ball_center_px": {
+        "x": null,
+        "y": null
+      },
+      "ball_radius_px": null,
+      "visibility": 0,
+      "motion_blur_level": 3,
+      "annotator_confidence": 1,
+      "interpolated": true
+    }
+  ],
+  "landing_point": {
+    "px": {
+      "x": 850.0,
+      "y": 650.0
+    },
+    "court_coords_m": {
+      "x": 2.5,
+      "y": 8.0
+    },
+    "zone": "back_court_left"
+  },
+  "peak_speed_kmh": 145.0,
+  "trajectory_length_px": 1200.0,
+  "quality_check": {
+    "is_complete": true,
+    "missing_frames_count": 1,
+    "usable_for_training": true,
+    "reviewer": "reviewer_A",
+    "review_date": "2026-03-27"
+  }
+}

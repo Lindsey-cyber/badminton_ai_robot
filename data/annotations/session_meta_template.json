@@ -1,0 +1,124 @@
+{
+  "format_version": "1.0",
+  "session_id": "session_20260327_100000",
+  "date": "2026-03-27",
+  "time_start": "10:00:00",
+  "time_end": "11:30:00",
+  "location": {
+    "venue": "XX 羽毛球馆",
+    "city": "北京",
+    "court_type": "indoor",
+    "floor_type": "木地板",
+    "lighting": "LED 顶光，约 800 lux"
+  },
+  "equipment": {
+    "cameras": [
+      {
+        "camera_id": 0,
+        "role": "left_stereo",
+        "position_m": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 1.5
+        },
+        "orientation_deg": {
+          "pan": 0,
+          "tilt": -15,
+          "roll": 0
+        },
+        "model": "Logitech C920",
+        "resolution": [
+          1280,
+          720
+        ],
+        "fps": 60,
+        "focal_length_mm": 3.67
+      },
+      {
+        "camera_id": 1,
+        "role": "right_stereo",
+        "position_m": {
+          "x": 0.12,
+          "y": 0.0,
+          "z": 1.5
+        },
+        "orientation_deg": {
+          "pan": 0,
+          "tilt": -15,
+          "roll": 0
+        },
+        "model": "Logitech C920",
+        "resolution": [
+          1280,
+          720
+        ],
+        "fps": 60,
+        "focal_length_mm": 3.67
+      }
+    ],
+    "microphone": {
+      "model": "USB Microphone",
+      "channels": 1,
+      "sample_rate_hz": 44100
+    },
+    "robot": {
+      "firmware_version": "1.0.0",
+      "ball_type": "羽毛球 RSL TOURNEY",
+      "launch_settings_default": {
+        "speed_kmh": 80,
+        "angle_deg": 45,
+        "spin": "none"
+      }
+    }
+  },
+  "subjects": [
+    {
+      "subject_id": "player_A",
+      "age": 25,
+      "gender": "M",
+      "skill_level": "intermediate",
+      "dominant_hand": "right",
+      "height_cm": 175,
+      "notes": ""
+    }
+  ],
+  "protocol": {
+    "drill_type": "multi_directional",
+    "total_shots_planned": 200,
+    "actual_shots": 180,
+    "rest_intervals_s": [
+      30,
+      30,
+      60
+    ],
+    "speed_levels_kmh": [
+      60,
+      80,
+      100
+    ]
+  },
+  "annotations": {
+    "total_frames": 10800,
+    "annotated_frames": 9500,
+    "total_trajectories": 180,
+    "annotated_trajectories": 160,
+    "annotation_tool": "CVAT v2.0",
+    "annotators": [
+      "annotator_A",
+      "annotator_B"
+    ]
+  },
+  "data_split": {
+    "train": 0.7,
+    "val": 0.15,
+    "test": 0.15,
+    "split_strategy": "trajectory_based"
+  },
+  "quality_flags": {
+    "has_calibration": true,
+    "lighting_consistent": true,
+    "audio_clean": true,
+    "usable": true,
+    "notes": ""
+  }
+}

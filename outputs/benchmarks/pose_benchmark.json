@@ -1,0 +1,12 @@
+{
+  "input": "assets/demo_inputs/badminton_sample_clear_ball_trace.mp4",
+  "output": "/Users/lindseyma/Desktop/badminton_robot/outputs/demo_videos/pose_video_output.mp4",
+  "total_frames": 241,
+  "backend": "opencv",
+  "avg_infer_ms": 5.623071237575433,
+  "median_infer_ms": 5.216458986978978,
+  "p95_infer_ms": 6.844624993391335,
+  "avg_fps": 177.83875710441507,
+  "total_persons_detected": 2433,
+  "avg_persons_per_frame": 10.095435684647303
+}
