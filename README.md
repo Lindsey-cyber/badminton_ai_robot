@@ -91,6 +91,10 @@ The API currently streams **candidate events**, not confirmed shots, live images
 
 Install `requirements-dev.txt` and run `python -m pytest tests -q`. GitHub Actions runs this on `main` pushes and pull requests with Python 3.12, including a 24-frame integration run through the checked-in video, ONNX pose model and bounded pipeline. It asserts frame accounting and successful inference, not an arbitrary cloud FPS threshold or unverified shot accuracy. Hardware tests and performance regression thresholds require an actual edge baseline and remain separate.
 
+## Shuttlecock training data
+
+No labeled shuttlecock dataset exists in the repository; the generic COCO sports-ball model is not fine-tuned. The [dataset guide](docs/shuttle_dataset.md) defines the one-class train/val/test layout and the validation command that generates an actual Ultralytics `data.yaml` once real labels are supplied. Exact duplicate images and malformed boxes are rejected, but nearby frames from a single video must be grouped by recording before splitting. No accuracy metric has been measured.
+
 ## Development order
 
 Use recorded video to develop and test inference, tracking, events, storage and a robot simulator before integrating hardware. Preserve the existing ONNX demo while extracting independent responsibilities into a small package. The bounded queue is covered by software failure and overflow tests, but its Pi performance remains unmeasured. The historical ~30 FPS Pi screenshot is a clue, not a current benchmark. The [audit](docs/repository_audit.md) records hardware and training-data gates.
