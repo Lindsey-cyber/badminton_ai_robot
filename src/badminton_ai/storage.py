@@ -83,10 +83,26 @@ class EventStore:
         ).fetchone()
         return (row[0] + 1) if row[0] is not None else 0
 
-    def read_events(self, session_id: str) -> list[Event]:
+    def list_sessions(self) -> list[dict[str, str]]:
+        rows = self._connection.execute(
+            "SELECT session_id, started_at_utc FROM sessions ORDER BY started_at_utc, session_id"
+        ).fetchall()
+        return [{"session_id": session_id, "started_at_utc": started_at}
+                for session_id, started_at in rows]
+
+    def session_exists(self, session_id: str) -> bool:
+        return self._connection.execute(
+            "SELECT 1 FROM sessions WHERE session_id = ?", (session_id,)
+        ).fetchone() is not None
+
+    def read_events(self, session_id: str, after_sequence: int = -1,
+                    limit: int = 1000) -> list[Event]:
+        if after_sequence < -1 or limit < 1:
+            raise ValueError("Invalid event cursor or limit")
         rows = self._connection.execute(
             "SELECT event_id, session_id, sequence, timestamp_utc, type, payload_json "
-            "FROM events WHERE session_id = ? ORDER BY sequence", (session_id,),
+            "FROM events WHERE session_id = ? AND sequence > ? ORDER BY sequence LIMIT ?",
+            (session_id, after_sequence, limit),
         ).fetchall()
         return [Event(event_id, stored_session, sequence,
                       datetime.fromisoformat(timestamp), EventType(event_type), json.loads(payload))

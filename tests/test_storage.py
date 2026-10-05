@@ -32,6 +32,10 @@ class StorageTests(unittest.TestCase):
                 second = emitter.emit(EventType.SHOT_CANDIDATE, {"frame_index": 8})
                 self.assertEqual([event.sequence for event in reopened.read_events("s")], [0, 1])
                 self.assertEqual(second.sequence, 1)
+                self.assertEqual([e.sequence for e in reopened.read_events("s", 0, 1)], [1])
+                self.assertEqual(reopened.read_events("s", 1), [])
+                self.assertTrue(reopened.session_exists("s"))
+                self.assertEqual([s["session_id"] for s in reopened.list_sessions()], ["s"])
                 with self.assertRaises(ValueError):
                     reopened.append(replace(second, event_id="another-id"))
                 with self.assertRaises(ValueError):

@@ -74,6 +74,19 @@ print(robot.get_state())
 
 Use `PYTHONPATH=src python your_script.py` for the example from the repository root. The coordinates and timing are **simulation parameters**, not measured court motion or a safe motor controller. Command history is retained in memory for the lifetime of one simulator instance to protect duplicate IDs. No transport, hardware ACK timeout, retry policy or Raspberry Pi adapter is defined yet: there is no hardware protocol to test those behaviors against. Hardware integration remains a separate stage.
 
+## Local event API
+
+Install the optional dependencies and start a local server against the same SQLite path as the candidate inspection command:
+
+```bash
+python -m pip install -r requirements-api.txt
+python scripts/run_api.py --db outputs/events.sqlite3
+```
+
+`GET /health`, `GET /sessions`, `GET /sessions/{session_id}/events?after_sequence=-1&limit=100`, `POST /sessions`, and `POST /events` expose the stored candidate log. The POST event body includes `event_id`, `session_id`, nonnegative `sequence`, timezone-aware `timestamp_utc`, `type: "ShotCandidate"`, and `payload`. An identical retry returns `{"inserted": false}`; an ID or order conflict returns HTTP 409. `ws://127.0.0.1:8000/sessions/{session_id}/stream?after_sequence=-1` first replays stored events, then checks SQLite every 250 ms for new ones. Reconnect with the last received sequence to resume without a gap. A video analysis process can continue writing SQLite while the API or a client is disconnected. Start the API only on a trusted local interface: authentication and remote deployment have not been implemented.
+
+The API currently streams **candidate events**, not confirmed shots, live images, FPS or robot telemetry. Polling a durable local log is sufficient for this single-machine setup; there is no measured need for a message broker. The additional API tests require `requirements-api.txt`; the vision and simulator tests do not.
+
 ## Development order
 
 Use recorded video to develop and test inference, tracking, events, storage and a robot simulator before integrating hardware. Preserve the existing ONNX demo while extracting independent responsibilities into a small package. The bounded queue is covered by software failure and overflow tests, but its Pi performance remains unmeasured. The historical ~30 FPS Pi screenshot is a clue, not a current benchmark. The [audit](docs/repository_audit.md) records hardware and training-data gates.
