@@ -32,6 +32,13 @@ class DetectionClassTests(unittest.TestCase):
         self.assertEqual(len(detections), 1)
         self.assertEqual(detections[0]["class_id"], 32)
 
+        # A one-class raw export uses class 0 only when explicitly selected.
+        detector.target_classes = [0]
+        one_class = np.array([[[50], [50], [10], [10], [0.8]]], dtype=np.float32)
+        shuttle = detector.postprocess([one_class], 1.0, 0, 0, 200, 200)
+        self.assertEqual(len(shuttle), 1)
+        self.assertEqual(shuttle[0]["class_id"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -95,6 +95,8 @@ Install `requirements-dev.txt` and run `python -m pytest tests -q`. GitHub Actio
 
 No labeled shuttlecock dataset exists in the repository; the generic COCO sports-ball model is not fine-tuned. The [dataset guide](docs/shuttle_dataset.md) defines the one-class train/val/test layout and the validation command that generates an actual Ultralytics `data.yaml` once real labels are supplied. Exact duplicate images and malformed boxes are rejected, but nearby frames from a single video must be grouped by recording before splitting. No accuracy metric has been measured.
 
+`scripts/train_shuttle.py` is the runnable fine-tuning, held-out evaluation and fixed-shape ONNX export entry point once labeled data is available. It writes a report with measured test metrics and model hashes only after a real training run. Use `--class-id 0` with the exported one-class model in the ball demo and benchmarks; the generic COCO model uses class 32. Export compatibility is checked before writing the report. Target-device inference latency still requires a separate benchmark; no trained weights or training result is claimed here.
+
 ## Development order
 
 Use recorded video to develop and test inference, tracking, events, storage and a robot simulator before integrating hardware. Preserve the existing ONNX demo while extracting independent responsibilities into a small package. The bounded queue is covered by software failure and overflow tests, but its Pi performance remains unmeasured. The historical ~30 FPS Pi screenshot is a clue, not a current benchmark. The [audit](docs/repository_audit.md) records hardware and training-data gates.

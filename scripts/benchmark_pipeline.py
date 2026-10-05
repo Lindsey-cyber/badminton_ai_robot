@@ -24,18 +24,20 @@ def main() -> int:
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--mode", choices=("pose", "ball"), default="pose")
     parser.add_argument("--model", type=Path)
+    parser.add_argument("--class-id", type=int, default=32,
+                        help="Detection class: COCO sports ball 32; fine-tuned shuttlecock 0")
     parser.add_argument("--frames", type=int, default=300)
     parser.add_argument("--warmup", type=int, default=10)
     parser.add_argument("--queue-size", type=int, default=2)
     parser.add_argument("--output", type=Path, default=ROOT / "outputs/benchmarks/pipeline_replay.json")
     args = parser.parse_args()
-    if args.frames < 1 or args.warmup < 0 or args.queue_size < 1:
+    if args.frames < 1 or args.warmup < 0 or args.queue_size < 1 or args.class_id < 0:
         parser.error("--frames and --queue-size must be positive; --warmup must be nonnegative")
     if not args.input.is_file():
         parser.error(f"Video not found: {args.input}")
     model = args.model or ROOT / ("src/pose/yolov8n-pose.onnx" if args.mode == "pose" else "src/perception/yolov8n.onnx")
     try:
-        detector = make_detector(args.mode, model.resolve())
+        detector = make_detector(args.mode, model.resolve(), args.class_id)
         if args.warmup:
             warmup = VideoFileSource(args.input, max_frames=args.warmup)
             try:
@@ -58,6 +60,7 @@ def main() -> int:
         "python": platform.python_version(),
         "runtime_versions": runtime_versions(),
         "mode": args.mode,
+        "class_id": args.class_id if args.mode == "ball" else None,
         "input": report_path(args.input),
         "source_reported_fps": source.fps,
         "model": report_path(model),

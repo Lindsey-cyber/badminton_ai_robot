@@ -1,0 +1,4 @@
+-r requirements.txt
+# Install only on the machine used for model training/export.
+ultralytics>=8.3.0,<9
+onnx>=1.16,<2

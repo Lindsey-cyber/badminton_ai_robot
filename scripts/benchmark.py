@@ -80,7 +80,7 @@ def summarize(samples: list[float]) -> dict[str, float]:
     }
 
 
-def make_detector(mode: str, model_path: Path):
+def make_detector(mode: str, model_path: Path, class_id: int = 32):
     # Reuse the demo's preprocessing and postprocessing so this measures the
     # code that actually exists. Do not download a model during a benchmark.
     if not model_path.is_file():
@@ -90,7 +90,7 @@ def make_detector(mode: str, model_path: Path):
         from demo_pose_inference import YOLOv8PoseInference
         return YOLOv8PoseInference(str(model_path))
     from demo_badminton_detection import YOLOv8Detector
-    return YOLOv8Detector(str(model_path), target_classes=[32])
+    return YOLOv8Detector(str(model_path), target_classes=[class_id])
 
 
 def run(args: argparse.Namespace) -> dict:
@@ -100,7 +100,7 @@ def run(args: argparse.Namespace) -> dict:
         raise RuntimeError("OpenCV is required: pip install -r requirements.txt") from exc
 
     model_path = Path(args.model).resolve()
-    detector = make_detector(args.mode, model_path)
+    detector = make_detector(args.mode, model_path, getattr(args, "class_id", 32))
     capture = cv2.VideoCapture(args.camera if args.camera is not None else str(args.input))
     if not capture.isOpened():
         capture.release()
@@ -153,6 +153,7 @@ def run(args: argparse.Namespace) -> dict:
         "python": platform.python_version(),
         "runtime_versions": runtime_versions(),
         "mode": args.mode,
+        "class_id": getattr(args, "class_id", 32) if args.mode == "ball" else None,
         "model": report_path(model_path),
         "model_size_bytes": model_path.stat().st_size,
         "model_sha256": file_sha256(model_path),
@@ -189,11 +190,13 @@ def main() -> int:
     source.add_argument("--camera", type=int, help="OpenCV camera index")
     parser.add_argument("--mode", choices=("pose", "ball"), default="pose")
     parser.add_argument("--model", type=Path, help="Existing ONNX model (no auto download)")
+    parser.add_argument("--class-id", type=int, default=32,
+                        help="Detection class: COCO sports ball 32; fine-tuned shuttlecock 0")
     parser.add_argument("--frames", type=int, default=300)
     parser.add_argument("--warmup", type=int, default=10)
     parser.add_argument("--output", type=Path, default=ROOT / "outputs/benchmarks/baseline.json")
     args = parser.parse_args()
-    if args.frames <= 0 or args.warmup < 0:
+    if args.frames <= 0 or args.warmup < 0 or args.class_id < 0:
         parser.error("--frames must be positive and --warmup must be nonnegative")
     if args.model is None:
         args.model = ROOT / ("src/pose/yolov8n-pose.onnx" if args.mode == "pose" else "src/perception/yolov8n.onnx")
