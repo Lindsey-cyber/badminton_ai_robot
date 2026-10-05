@@ -62,6 +62,7 @@ def main() -> int:
         "mode": args.mode,
         "class_id": args.class_id if args.mode == "ball" else None,
         "input": report_path(args.input),
+        "input_sha256": file_sha256(args.input),
         "source_reported_fps": source.fps,
         "model": report_path(model),
         "model_size_bytes": model.stat().st_size,

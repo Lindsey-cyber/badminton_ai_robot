@@ -159,6 +159,8 @@ def run(args: argparse.Namespace) -> dict:
         "model_sha256": file_sha256(model_path),
         "providers": detector.session.get_providers(),
         "input": report_path(args.input) if args.camera is None else f"camera:{args.camera}",
+        "input_sha256": (file_sha256(args.input) if args.input is not None and
+                         args.input.is_file() else None),
         "input_kind": "video" if args.camera is None else "camera",
         "source_reported_fps": source_fps,
         "warmup_frames": args.warmup,

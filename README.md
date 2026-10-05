@@ -40,6 +40,14 @@ The report adds capture/processing FPS, software queue depth and dropped-frame r
 
 An [x86 cloud recorded-video benchmark](docs/cloud_benchmark_2026-10-05.md) and its raw JSON reports are checked in. The paced 24 FPS replay processed 153 of 200 frames at 18.064 FPS and discarded 47 old frames in its software queue. The sequential run processed 200 frames at 17.732 FPS. These figures are specific to that cloud run; Pi FPS, camera-driver drops and exposure latency remain unmeasured.
 
+Compare a future benchmark with a baseline **from the same device, input, model and measurement mode**:
+
+```bash
+python scripts/compare_benchmarks.py outputs/benchmarks/pi_pipeline_baseline.json outputs/benchmarks/pi_pipeline_after.json --max-fps-drop 0.15 --max-p95-rise 0.20 --max-rss-rise 0.20
+```
+
+The command exits 1 for a threshold regression and 2 when runs cannot be compared. It checks platform, Python/runtime versions, model hash, input identity, source FPS, queue size, warmup, frame count and latency boundary before comparing processed FPS, p95 latency and p95 RSS. Thresholds are starting tolerances, not statistically established Pi limits. Rerun on a controlled device to investigate a failure; shared GitHub runners are used for functional tests, not a strict FPS gate. Changing the model or timing boundary requires a new baseline and a separate accuracy/latency trade-off evaluation.
+
 Run the software tests without a camera or ONNX runtime:
 
 ```bash
