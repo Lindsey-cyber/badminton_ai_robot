@@ -5,11 +5,11 @@
   "time_start": "10:00:00",
   "time_end": "11:30:00",
   "location": {
-    "venue": "XX 羽毛球馆",
-    "city": "北京",
+    "venue": "Example badminton venue",
+    "city": "Beijing",
     "court_type": "indoor",
-    "floor_type": "木地板",
-    "lighting": "LED 顶光，约 800 lux"
+    "floor_type": "Wood",
+    "lighting": "Overhead LED lighting, approximately 800 lux"
   },
   "equipment": {
     "cameras": [
@@ -63,7 +63,7 @@
     },
     "robot": {
       "firmware_version": "1.0.0",
-      "ball_type": "羽毛球 RSL TOURNEY",
+      "ball_type": "RSL TOURNEY shuttlecock",
       "launch_settings_default": {
         "speed_kmh": 80,
         "angle_deg": 45,

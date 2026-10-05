@@ -141,7 +141,7 @@
   ],
   "images": [
     {
-      "__comment__": "每张图片的元数据",
+      "__comment__": "Metadata for each image",
       "id": 1,
       "file_name": "cam0/000000.jpg",
       "width": 1280,
@@ -156,7 +156,7 @@
   ],
   "annotations": [
     {
-      "__comment__": "人体关键点标注示例",
+      "__comment__": "Example human keypoint annotation",
       "id": 1,
       "image_id": 1,
       "category_id": 1,
@@ -230,7 +230,7 @@
       }
     },
     {
-      "__comment__": "羽毛球标注示例",
+      "__comment__": "Example shuttlecock annotation",
       "id": 2,
       "image_id": 1,
       "category_id": 2,

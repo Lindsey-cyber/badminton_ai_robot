@@ -2,15 +2,15 @@
 """
 video_batch_infer.py
 ====================
-批量视频推理脚本（姿态 + 球体检测）
+Batch video inference (pose and general-ball detection)
 
-功能：
-  - 对目录内所有视频批量运行推理
-  - 生成汇总 benchmark 报告
-  - 支持仅姿态 / 仅检测 / 联合推理
-  - 输出 JSON 汇总报告
+Features:
+  - Run inference on all videos in a directory
+  - Generate an aggregate benchmark report
+  - Support pose, detection, or both
+  - Write a JSON summary
 
-用法：
+Usage:
     python video_batch_infer.py --input-dir assets/demo_inputs/ --mode pose
     python video_batch_infer.py --input-dir assets/demo_inputs/ --mode detect
     python video_batch_infer.py --input-dir assets/demo_inputs/ --mode both
@@ -37,7 +37,7 @@ VIDEO_EXTENSIONS = {".mp4", ".avi", ".mov", ".mkv", ".wmv"}
 
 
 def find_videos(input_dir: str) -> list:
-    """递归查找所有视频文件"""
+    """Find video files recursively"""
     videos = []
     for ext in VIDEO_EXTENSIONS:
         videos.extend(Path(input_dir).rglob(f"*{ext}"))
@@ -52,19 +52,19 @@ def batch_infer(
     detect_model_path: str = None,
 ) -> dict:
     """
-    批量推理并汇总结果
+    Run batch inference and summarize results
 
     mode: "pose" | "detect" | "both"
     """
     videos = find_videos(input_dir)
     if not videos:
-        logger.warning(f"在 {input_dir} 中未找到视频文件")
-        logger.info(f"支持的格式: {VIDEO_EXTENSIONS}")
+        logger.warning(f"No videos found in {input_dir}")
+        logger.info(f"Supported extensions: {VIDEO_EXTENSIONS}")
         return {}
 
-    logger.info(f"找到 {len(videos)} 个视频文件")
+    logger.info(f"Found {len(videos)} videos")
 
-    # 动态导入推理脚本（避免循环依赖）
+    # Import existing inference demos on demand
     sys.path.insert(0, str(SCRIPT_DIR))
 
     pose_model = None
@@ -76,9 +76,9 @@ def batch_infer(
             from pathlib import Path as P
             if dl_pose(P(pose_model_path)):
                 pose_model = YOLOv8PoseInference(pose_model_path)
-                logger.info("姿态模型加载成功")
+                logger.info("Pose model loaded")
         except Exception as e:
-            logger.warning(f"姿态模型加载失败: {e}")
+            logger.warning(f"Pose model failed to load: {e}")
 
     if mode in ["detect", "both"] and detect_model_path:
         try:
@@ -86,19 +86,19 @@ def batch_infer(
             from pathlib import Path as P
             if dl_det(P(detect_model_path)):
                 detect_model = YOLOv8Detector(detect_model_path)
-                logger.info("检测模型加载成功")
+                logger.info("Detection model loaded")
         except Exception as e:
-            logger.warning(f"检测模型加载失败: {e}")
+            logger.warning(f"Detection model failed to load: {e}")
 
     if (mode in ("pose", "both") and pose_model is None) or (mode in ("detect", "both") and detect_model is None):
-        raise RuntimeError(f"未能加载 {mode} 模式所需的全部模型；不生成推理性能报告")
+        raise RuntimeError(f"Could not load all models required for {mode}; no inference report will be generated")
 
-    # 批量处理
+    # Process videos
     results = []
     total_start = time.perf_counter()
 
     for video_path in videos:
-        logger.info(f"处理: {video_path.name}")
+        logger.info(f"Processing: {video_path.name}")
         video_result = process_single_video(
             video_path, pose_model, detect_model, mode, max_frames_per_video
         )
@@ -106,7 +106,7 @@ def batch_infer(
 
     total_elapsed = time.perf_counter() - total_start
 
-    # 汇总统计
+    # Summarize
     summary = {
         "total_videos": len(videos),
         "mode": mode,
@@ -121,14 +121,14 @@ def batch_infer(
             summary["overall_avg_infer_ms"] = float(np.mean(avg_infer_ms))
             summary["overall_avg_fps"] = 1000.0 / np.mean(avg_infer_ms)
 
-    # 保存报告
+    # Save report
     BENCHMARK_DIR.mkdir(parents=True, exist_ok=True)
     report_path = BENCHMARK_DIR / f"batch_benchmark_{mode}.json"
     with open(str(report_path), "w", encoding="utf-8") as f:
         json.dump(summary, f, indent=2, ensure_ascii=False)
 
-    logger.info(f"批量推理完成，报告已保存: {report_path}")
-    logger.info(f"总耗时: {total_elapsed:.1f}s，共处理 {len(videos)} 个视频")
+    logger.info(f"Batch inference complete; report saved: {report_path}")
+    logger.info(f"Elapsed time: {total_elapsed:.1f}s，processed {len(videos)} videos")
 
     return summary
 
@@ -140,12 +140,12 @@ def process_single_video(
     mode: str,
     max_frames: int
 ) -> dict:
-    """处理单个视频，返回统计结果"""
+    """Process one video and return its results"""
     cap = None
     try:
         import cv2
     except ImportError:
-        logger.error("需要 opencv-python")
+        logger.error("OpenCV is required")
         return {"file": str(video_path), "error": "OpenCV not available"}
 
     try:
@@ -210,21 +210,21 @@ def process_single_video(
 
 
 def generate_summary_report(benchmark_path: str) -> str:
-    """从 benchmark JSON 生成可读报告"""
+    """Render a readable report from benchmark JSON"""
     with open(benchmark_path) as f:
         data = json.load(f)
 
     lines = [
         "=" * 60,
-        "批量推理 Benchmark 报告",
+        "Batch inference benchmark report",
         "=" * 60,
-        f"模式: {data.get('mode', 'unknown')}",
-        f"视频数量: {data.get('total_videos', 0)}",
-        f"总耗时: {data.get('total_time_s', 0):.1f}s",
-        f"平均推理延迟: {data.get('overall_avg_infer_ms', 0):.1f}ms",
-        f"平均推理 FPS: {data.get('overall_avg_fps', 0):.1f}",
+        f"Mode: {data.get('mode', 'unknown')}",
+        f"Video count: {data.get('total_videos', 0)}",
+        f"Elapsed time: {data.get('total_time_s', 0):.1f}s",
+        f"Mean inference latency: {data.get('overall_avg_infer_ms', 0):.1f}ms",
+        f"Inference-only FPS estimate: {data.get('overall_avg_fps', 0):.1f}",
         "",
-        "各视频详情:",
+        "Per-video results:",
     ]
 
     for vr in data.get("per_video_results", []):
@@ -232,28 +232,28 @@ def generate_summary_report(benchmark_path: str) -> str:
         if "error" in vr:
             lines.append(f"  ✗ {fname}: {vr['error']}")
         else:
-            lines.append(f"  ✓ {fname}: {vr['avg_infer_ms']:.1f}ms/帧, "
+            lines.append(f"  ✓ {fname}: {vr['avg_infer_ms']:.1f}ms/frame, "
                          f"{vr['avg_fps']:.1f}fps, "
-                         f"人={vr['avg_persons_per_frame']:.1f}, "
-                         f"球={vr['avg_balls_per_frame']:.1f}")
+                         f"people={vr['avg_persons_per_frame']:.1f}, "
+                         f"balls={vr['avg_balls_per_frame']:.1f}")
 
     return "\n".join(lines)
 
 
 def main():
-    parser = argparse.ArgumentParser(description="批量视频推理工具")
+    parser = argparse.ArgumentParser(description="Batch video inference tool")
     parser.add_argument("--input-dir", "-i", type=str,
                         default=str(PROJECT_ROOT / "assets" / "demo_inputs"),
-                        help="输入视频目录")
+                        help="Input video directory")
     parser.add_argument("--mode", choices=["pose", "detect", "both"],
-                        default="pose", help="推理模式")
+                        default="pose", help="Inference mode")
     parser.add_argument("--max-frames", type=int, default=100,
-                        help="每个视频最多处理帧数（-1=全部）")
+                        help="Maximum frames per video (-1 for all)")
     parser.add_argument("--pose-model", type=str,
                         default=str(PROJECT_ROOT / "src" / "pose" / "yolov8n-pose.onnx"))
     parser.add_argument("--detect-model", type=str,
                         default=str(PROJECT_ROOT / "src" / "perception" / "yolov8n.onnx"))
-    parser.add_argument("--report", type=str, help="从已有 benchmark JSON 生成可读报告")
+    parser.add_argument("--report", type=str, help="Render an existing benchmark JSON")
 
     args = parser.parse_args()
 
@@ -272,10 +272,10 @@ def main():
 
     if summary:
         print("\n" + "=" * 60)
-        print("汇总:")
-        print(f"  视频数: {summary.get('total_videos', 0)}")
-        print(f"  平均推理: {summary.get('overall_avg_infer_ms', 'N/A'):.1f}ms")
-        print(f"  平均 FPS: {summary.get('overall_avg_fps', 'N/A'):.1f}")
+        print("Summary:")
+        print(f"  Videos: {summary.get('total_videos', 0)}")
+        print(f"  Mean inference: {summary.get('overall_avg_infer_ms', 'N/A'):.1f}ms")
+        print(f"  Inference-only FPS estimate: {summary.get('overall_avg_fps', 'N/A'):.1f}")
         print("=" * 60)
 
 

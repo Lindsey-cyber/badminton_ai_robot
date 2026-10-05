@@ -1,6 +1,6 @@
 {
   "format_version": "1.0",
-  "description": "羽毛球轨迹标注（多帧序列）",
+  "description": "Shuttlecock trajectory annotation (multiple frames)",
   "session_id": "session_20260327_100000",
   "camera_id": 0,
   "fps": 60,
@@ -36,7 +36,7 @@
       "annotator_confidence": 3
     },
     {
-      "__comment__": "模糊/不可见帧示例",
+      "__comment__": "Example blurred or invisible frame",
       "frame_index": 5,
       "timestamp_s": 0.083,
       "ball_center_px": {
