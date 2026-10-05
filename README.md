@@ -122,3 +122,5 @@ The synthetic pose-video generator was also retired; its [historical video](outp
 ## Development order
 
 Use recorded video to develop and test inference, tracking, events, storage and a robot simulator before integrating hardware. Preserve the existing ONNX demo while extracting independent responsibilities into a small package. The bounded queue is covered by software failure and overflow tests, but its Pi performance remains unmeasured. The historical ~30 FPS Pi screenshot is a clue, not a current benchmark. The [audit](docs/repository_audit.md) records hardware and training-data gates.
+
+The multi-camera collector is an **unsynchronized sequential OpenCV reader**. Its timestamp precedes reading each camera, so it cannot establish stereo exposure alignment. `--dry-run` prints settings without creating a session directory. An old `--audio` flag only created an empty folder and was removed; audio capture remains a hardware-stage task if needed.
