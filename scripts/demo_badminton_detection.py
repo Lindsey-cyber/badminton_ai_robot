@@ -2,23 +2,23 @@
 """
 demo_badminton_detection.py
 ===========================
-羽毛球/球体检测 + 轨迹追踪 + 速度估计 Demo
+Generic sports-ball detection, trajectory tracking and apparent speed demo.
 
-功能：
-  1. YOLOv8n ONNX 检测运动球体（可用预训练模型，class="sports ball"）
-  2. 卡尔曼滤波轨迹平滑
-  3. 单目像素速度估计 → 物理速度近似换算
-  4. 轨迹绘制（历史轨迹 + 预测方向）
-  5. 输出带标注的视频
+Features:
+  1. Detect COCO sports balls with a generic YOLOv8n ONNX model.
+  2. Smooth image-plane tracks with a Kalman filter.
+  3. Estimate apparent image-plane speed with optional approximate court scale.
+  4. Draw track history and a predicted direction.
+  5. Write an annotated video.
 
-用法：
+Usage:
     python demo_badminton_detection.py --input assets/demo_inputs/badminton_sample.mp4
     python demo_badminton_detection.py --camera 0
 
-注意：
-  - 当前使用 YOLOv8n 预训练模型（COCO 类别 class 32 = sports ball）
-  - 真实场景中应微调专用羽毛球模型（参见 training_and_finetune_plan.md）
-  - 高速羽毛球建议使用 TrackNetV3 替代
+Limitations:
+  - The generic pretrained model's COCO class 32 is sports ball, not shuttlecock.
+  - No fine-tuned shuttlecock detector or validated accuracy is present.
+  - A single camera does not measure a flying shuttle's 3D speed.
 """
 
 import argparse
@@ -43,7 +43,7 @@ try:
     ORT_AVAILABLE = True
 except ImportError:
     ORT_AVAILABLE = False
-    print("[ERROR] 请安装: pip install onnxruntime")
+    print("[ERROR] Install onnxruntime: pip install onnxruntime")
     sys.exit(1)
 
 from PIL import Image, ImageDraw
@@ -52,7 +52,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger(__name__)
 
 # =============================================================================
-# 配置
+# Configuration
 # =============================================================================
 
 SCRIPT_DIR = Path(__file__).parent
@@ -64,7 +64,7 @@ DEFAULT_MODEL_PATH = MODEL_DIR / "yolov8n.onnx"
 OUTPUT_DIR = PROJECT_ROOT / "outputs" / "demo_videos"
 BENCHMARK_DIR = PROJECT_ROOT / "outputs" / "benchmarks"
 
-# YOLOv8n ONNX 下载地址
+# Generic YOLOv8n ONNX download URL
 MODEL_URL = "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolov8n.onnx"
 
 # The generic COCO model uses class 32 for sports ball. Its class 0 is person.
@@ -73,65 +73,65 @@ MODEL_URL = "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo
 BALL_CLASS_IDS = {32: "sports ball"}
 TARGET_CLASS_IDS = [32]
 
-# 轨迹颜色（从淡到深，表示历史→现在）
+# Trajectory colors, from older to newer
 TRAJECTORY_COLORS = [
-    (0, 255, 255),   # 黄绿
+    (0, 255, 255),   # yellow-green
     (0, 200, 200),
     (0, 150, 200),
     (0, 100, 200),
-    (0, 50, 255),    # 蓝色
+    (0, 50, 255),    # blue
 ]
 
-MAX_TRAJECTORY_LEN = 30  # 最多保留 30 帧历史轨迹
+MAX_TRAJECTORY_LEN = 30  # Keep at most 30 tracked positions.
 
 
 # =============================================================================
-# 模型下载
+# Model download
 # =============================================================================
 
 def download_model(model_path: Path) -> bool:
     if model_path.exists():
-        logger.info(f"模型已存在: {model_path}")
+        logger.info(f"Model already exists: {model_path}")
         return True
 
     model_path.parent.mkdir(parents=True, exist_ok=True)
-    logger.info(f"正在下载 YOLOv8n 模型: {MODEL_URL}")
+    logger.info(f"Downloading generic YOLOv8n model: {MODEL_URL}")
 
     try:
         def reporthook(block_num, block_size, total_size):
             downloaded = block_num * block_size
             if total_size > 0:
                 pct = min(downloaded * 100 / total_size, 100)
-                print(f"\r下载进度: {pct:.1f}%", end="", flush=True)
+                print(f"\rDownload progress: {pct:.1f}%", end="", flush=True)
 
         urllib.request.urlretrieve(MODEL_URL, str(model_path), reporthook)
         print()
-        logger.info("模型下载完成！")
+        logger.info("Model download complete")
         return True
     except Exception as e:
-        logger.error(f"下载失败: {e}")
+        logger.error(f"Download failed: {e}")
         return False
 
 
 # =============================================================================
-# YOLOv8 检测器
+# YOLOv8 detector
 # =============================================================================
 
 class YOLOv8Detector:
-    """YOLOv8 通用目标检测器（ONNX）"""
+    """Generic YOLOv8 object detector (ONNX)."""
 
     INPUT_SIZE = 640
 
     def __init__(self, model_path: str, conf_threshold: float = 0.20, target_classes: list = None):
         self.conf_threshold = conf_threshold
-        self.target_classes = target_classes  # None = 检测所有类别
+        self.target_classes = target_classes  # None detects all classes.
 
-        logger.info(f"加载检测模型: {model_path}")
+        logger.info(f"Loading detector: {model_path}")
         providers = ort.get_available_providers()
         self.session = ort.InferenceSession(model_path, providers=providers)
         self.input_name = self.session.get_inputs()[0].name
         self.output_names = [o.name for o in self.session.get_outputs()]
-        logger.info("检测模型加载成功！")
+        logger.info("Detector loaded")
 
     def preprocess(self, image_bgr: np.ndarray):
         h, w = image_bgr.shape[:2]
@@ -155,17 +155,17 @@ class YOLOv8Detector:
         return img_tensor, scale, pad_h, pad_w, h, w
 
     def postprocess(self, outputs, scale, pad_h, pad_w, orig_h, orig_w):
-        # YOLOv8 输出: [1, 84, num_anchors]  (4 box + 80 classes)
-        # 或自定义类别数
+        # YOLOv8 output: [1, 84, num_anchors] (4 box values + 80 classes),
+        # or a custom number of classes.
         preds = outputs[0][0].T  # [num_anchors, 84]
 
-        # 获取最高类别分数
+        # Find the top class score.
         class_scores = preds[:, 4:]
         class_ids = np.argmax(class_scores, axis=1)
         max_scores = class_scores[np.arange(len(class_ids)), class_ids]
-        obj_conf = max_scores  # YOLOv8 不再有单独 objectness
+        obj_conf = max_scores  # YOLOv8 has no separate objectness score.
 
-        # 过滤
+        # Filter low-confidence predictions.
         mask = obj_conf > self.conf_threshold
         if self.target_classes is not None:
             class_mask = np.isin(class_ids, self.target_classes)
@@ -178,7 +178,7 @@ class YOLOv8Detector:
         if len(preds_filtered) == 0:
             return []
 
-        # 解码 box
+        # Decode boxes.
         cx = preds_filtered[:, 0]
         cy = preds_filtered[:, 1]
         bw = preds_filtered[:, 2]
@@ -214,15 +214,15 @@ class YOLOv8Detector:
 
 
 # =============================================================================
-# 可视化
+# Visualization
 # =============================================================================
 
 def draw_detections(image: np.ndarray, detections: list, trajectory: deque,
                     speed_info: dict, predictions: list = None) -> np.ndarray:
-    """绘制检测结果、轨迹、速度"""
+    """Draw detections, track and apparent speed."""
     vis = image.copy()
 
-    # 绘制历史轨迹
+    # Draw track history.
     traj_list = list(trajectory)
     for i in range(1, len(traj_list)):
         color_idx = min(int(i / max(len(traj_list), 1) * len(TRAJECTORY_COLORS)),
@@ -235,7 +235,7 @@ def draw_detections(image: np.ndarray, detections: list, trajectory: deque,
                      (int(traj_list[i][0]), int(traj_list[i][1])),
                      color, thickness)
 
-    # 绘制预测轨迹
+    # Draw predicted track.
     if predictions and CV2_AVAILABLE:
         for i, pred_pos in enumerate(predictions):
             alpha = 0.8 - i * 0.15
@@ -249,23 +249,23 @@ def draw_detections(image: np.ndarray, detections: list, trajectory: deque,
                          (int(pred_pos[0]), int(pred_pos[1])),
                          (200, 200, 0), 1)
 
-    # 绘制检测框
+    # Draw detections.
     for det in detections:
         bbox = det["bbox"]
         x1, y1, x2, y2 = [int(v) for v in bbox]
         cx, cy = int(det["center"][0]), int(det["center"][1])
 
         if CV2_AVAILABLE:
-            # 边界框
+            # Bounding box.
             cv2.rectangle(vis, (x1, y1), (x2, y2), (0, 255, 255), 2)
-            # 中心点
+            # Center point.
             cv2.circle(vis, (cx, cy), 6, (0, 255, 255), -1)
-            # 标签
+            # Label.
             label = f"{det['class_name']} {det['score']:.2f}"
             cv2.putText(vis, label, (x1, y1 - 8),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
 
-    # 绘制速度信息
+    # Draw apparent speed.
     if speed_info and CV2_AVAILABLE:
         if speed_info.get("speed_kmh") is not None:
             speed_text = f"Speed: {speed_info['speed_kmh']:.1f} km/h"
@@ -302,7 +302,7 @@ def add_info_overlay(image: np.ndarray, fps: float, infer_ms: float,
 
 
 # =============================================================================
-# 视频处理
+# Video processing
 # =============================================================================
 
 def process_video(
@@ -313,12 +313,12 @@ def process_video(
     pixels_per_meter: float = None,
 ) -> dict:
     if not CV2_AVAILABLE:
-        logger.error("视频处理需要 opencv-python")
+        logger.error("Video processing requires opencv-python")
         return {}
 
     cap = cv2.VideoCapture(input_path)
     if not cap.isOpened():
-        logger.error(f"无法打开: {input_path}")
+        logger.error(f"Cannot open: {input_path}")
         return {}
 
     fps = cap.get(cv2.CAP_PROP_FPS)
@@ -328,18 +328,18 @@ def process_video(
     w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    logger.info(f"视频: {w}x{h} @ {fps:.1f}fps, 共 {total} 帧")
+    logger.info(f"Video: {w}x{h} @ {fps:.1f}fps, {total} frames")
 
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     fourcc = cv2.VideoWriter_fourcc(*"mp4v")
     writer = cv2.VideoWriter(output_path, fourcc, fps, (w, h))
 
-    # 初始化
+    # Initialize tracking.
     kf = BallKalmanFilter()
     speed_est = SpeedEstimator(fps=fps, pixels_per_meter=pixels_per_meter)
     trajectory = deque(maxlen=MAX_TRAJECTORY_LEN)
 
-    # 统计
+    # Statistics.
     infer_times = []
     frame_idx = 0
     detected_frames = 0
@@ -354,36 +354,36 @@ def process_video(
         if max_frames > 0 and frame_idx >= max_frames:
             break
 
-        # 检测
+        # Detect.
         results, infer_ms = detector.inference(frame)
         infer_times.append(infer_ms)
 
-        # 选取最佳候选球（最高置信度）
+        # Select the highest-confidence candidate.
         best_det = None
         if results:
             best_det = results[0]
             detected_frames += 1
             cx, cy = best_det["center"]
 
-            # 卡尔曼更新
+            # Update the Kalman filter.
             smooth_pos = kf.update((cx, cy))
             trajectory.append(smooth_pos)
 
-            # 速度估计
+            # Estimate apparent speed.
             speed_info = speed_est.update(smooth_pos, frame_idx)
             if speed_info.get("speed_kmh") is not None:
                 speed_samples.append(speed_info["speed_kmh"])
         else:
-            # 仅预测（无检测）
+            # Predict without a detection.
             if kf.initialized:
                 kf.advance_without_measurement()
-                # 不添加到轨迹（仅内部预测）
+                # Do not add an unobserved point to the displayed track.
             speed_info = {"pixel_speed": 0, "speed_kmh": None, "speed_ms": None}
 
-        # 预测未来轨迹
+        # Predict the next position.
         future_preds = kf.predict_next(5) if kf.initialized else []
 
-        # 计算 FPS
+        # Calculate processing FPS.
         t_now = time.perf_counter()
         fps_window.append(1.0 / max(t_now - t_prev, 1e-6))
         if len(fps_window) > 30:
@@ -391,7 +391,7 @@ def process_video(
         fps_display = np.mean(fps_window)
         t_prev = t_now
 
-        # 可视化
+        # Annotate the frame.
         vis = draw_detections(frame, results if best_det else [], trajectory,
                               speed_info if best_det else {}, future_preds)
         vis = add_info_overlay(vis, fps_display, infer_ms, len(results), frame_idx)
@@ -401,8 +401,8 @@ def process_video(
 
         if frame_idx % 50 == 0:
             detect_rate = detected_frames / max(frame_idx, 1) * 100
-            logger.info(f"帧 {frame_idx}/{total}, 检测率: {detect_rate:.1f}%, "
-                        f"推理: {np.mean(infer_times[-30:]):.1f}ms")
+            logger.info(f"Frame {frame_idx}/{total}, detection rate: {detect_rate:.1f}%, "
+                        f"inference: {np.mean(infer_times[-30:]):.1f}ms")
 
     cap.release()
     writer.release()
@@ -420,12 +420,12 @@ def process_video(
     }
 
     logger.info("=" * 50)
-    logger.info("球体检测结果汇总:")
+    logger.info("Generic sports-ball detection summary:")
     for k, v in stats.items():
         logger.info(f"  {k}: {v}")
     logger.info("=" * 50)
-    logger.info("⚠️  注意：当前使用通用 YOLOv8n，对羽毛球检测率有限")
-    logger.info("   建议：微调专项羽毛球模型或使用 TrackNetV3")
+    logger.info("Generic COCO sports-ball predictions are not validated shuttlecock detections")
+    logger.info("A labeled shuttlecock dataset is needed before reporting detector accuracy")
 
     return stats
 
@@ -435,27 +435,27 @@ def process_video(
 # =============================================================================
 
 def main():
-    parser = argparse.ArgumentParser(description="羽毛球/球体检测 + 轨迹追踪 Demo")
-    parser.add_argument("--input", "-i", type=str, help="输入视频路径")
+    parser = argparse.ArgumentParser(description="Generic sports-ball detection and tracking demo")
+    parser.add_argument("--input", "-i", type=str, help="Input video path")
     parser.add_argument("--camera", "-c", type=int, default=None)
     parser.add_argument("--output", "-o", type=str, default=None)
     parser.add_argument("--model", "-m", type=str, default=str(DEFAULT_MODEL_PATH))
     parser.add_argument("--conf", type=float, default=0.20)
     parser.add_argument("--max-frames", type=int, default=-1)
     parser.add_argument("--ppm", type=float, default=None,
-                        help="像素/米标定值（pixels per meter），用于速度估计")
+                        help="Court-plane pixels per meter for approximate speed")
     parser.add_argument("--class-id", type=int, default=32,
                         help="Target class ID in this model (default: COCO sports ball 32)")
     parser.add_argument("--all-classes", action="store_true",
-                        help="检测所有类别（而非仅球类）")
+                        help="Detect every class rather than only COCO sports ball")
     args = parser.parse_args()
 
-    # 下载模型
+    # Download model if needed.
     model_path = Path(args.model)
     if not download_model(model_path):
         sys.exit(1)
 
-    # 目标类别
+    # Target classes.
     target_classes = None if args.all_classes else [args.class_id]
     detector = YOLOv8Detector(str(model_path), conf_threshold=args.conf,
                                target_classes=target_classes)
@@ -464,9 +464,9 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
 
     if args.camera is not None:
-        # 实时摄像头（简化版，不记录统计）
+        # Camera demo without persistent statistics.
         if not CV2_AVAILABLE:
-            logger.error("需要 opencv-python")
+            logger.error("opencv-python is required")
             return
 
         cap = cv2.VideoCapture(args.camera)
@@ -476,7 +476,7 @@ def main():
         speed_est = SpeedEstimator(fps=fps, pixels_per_meter=args.ppm)
         frame_idx = 0
 
-        logger.info("按 q 退出...")
+        logger.info("Press q to quit")
         while True:
             ret, frame = cap.read()
             if not ret:
@@ -504,17 +504,17 @@ def main():
         output_path = args.output or str(output_dir / "ball_detection_output.mp4")
         stats = process_video(detector, args.input, output_path,
                                max_frames=args.max_frames, pixels_per_meter=args.ppm)
-        # 保存 benchmark
+        # Save the benchmark.
         bench_path = str(BENCHMARK_DIR / "ball_detection_benchmark.json")
         BENCHMARK_DIR.mkdir(parents=True, exist_ok=True)
         with open(bench_path, "w") as f:
             json.dump(stats, f, indent=2, ensure_ascii=False)
-        logger.info(f"Benchmark 已保存: {bench_path}")
+        logger.info(f"Benchmark saved: {bench_path}")
     else:
-        logger.info("请指定 --input 视频路径 或 --camera 摄像头 ID")
-        logger.info("示例: python demo_badminton_detection.py --input video.mp4")
+        logger.info("Provide --input <video path> or --camera <device ID>")
+        logger.info("Example: python demo_badminton_detection.py --input video.mp4")
         logger.info("")
-        logger.info("TrackNetV3（专业羽毛球追踪）:")
+        logger.info("TrackNetV3 (a separate shuttlecock tracker):")
         logger.info("  git clone https://github.com/qaz812345/TrackNetV3")
 
 
