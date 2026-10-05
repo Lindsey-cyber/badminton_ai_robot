@@ -122,8 +122,12 @@ class YOLOv8Detector:
 
     INPUT_SIZE = 640
 
-    def __init__(self, model_path: str, conf_threshold: float = 0.20, target_classes: list = None):
+    def __init__(self, model_path: str, conf_threshold: float = 0.20,
+                 target_classes: list = None, iou_threshold: float = 0.45):
+        if not 0 <= conf_threshold <= 1 or not 0 < iou_threshold < 1:
+            raise ValueError("Confidence must be in [0, 1] and NMS IoU in (0, 1)")
         self.conf_threshold = conf_threshold
+        self.iou_threshold = iou_threshold
         self.target_classes = target_classes  # None detects all classes.
 
         logger.info(f"Loading detector: {model_path}")
@@ -159,18 +163,21 @@ class YOLOv8Detector:
         # or a custom number of classes.
         preds = outputs[0][0].T  # [num_anchors, 84]
 
-        # Find the top class score.
+        # Select from requested classes before choosing the winning class.
         class_scores = preds[:, 4:]
-        class_ids = np.argmax(class_scores, axis=1)
+        if self.target_classes is not None:
+            allowed = np.asarray(self.target_classes, dtype=int)
+            if (not len(allowed) or np.any(allowed < 0) or
+                    np.any(allowed >= class_scores.shape[1])):
+                raise ValueError("Target class ID is outside the model's output classes")
+            class_ids = allowed[np.argmax(class_scores[:, allowed], axis=1)]
+        else:
+            class_ids = np.argmax(class_scores, axis=1)
         max_scores = class_scores[np.arange(len(class_ids)), class_ids]
         obj_conf = max_scores  # YOLOv8 has no separate objectness score.
 
         # Filter low-confidence predictions.
         mask = obj_conf > self.conf_threshold
-        if self.target_classes is not None:
-            class_mask = np.isin(class_ids, self.target_classes)
-            mask = mask & class_mask
-
         preds_filtered = preds[mask]
         class_ids_filtered = class_ids[mask]
         scores_filtered = obj_conf[mask]
@@ -201,7 +208,31 @@ class YOLOv8Detector:
             })
 
         results.sort(key=lambda x: x["score"], reverse=True)
-        return results
+        kept = []
+        for detection in results:
+            x1, y1, x2, y2 = detection["bbox"]
+            detection["bbox"] = [max(0.0, min(orig_w, x1)),
+                                 max(0.0, min(orig_h, y1)),
+                                 max(0.0, min(orig_w, x2)),
+                                 max(0.0, min(orig_h, y2))]
+            x1, y1, x2, y2 = detection["bbox"]
+            if x2 <= x1 or y2 <= y1:
+                continue
+            detection["center"] = ((x1 + x2) / 2, (y1 + y2) / 2)
+            area = (x2 - x1) * (y2 - y1)
+            duplicate = False
+            for previous in kept:
+                if previous["class_id"] != detection["class_id"]:
+                    continue
+                px1, py1, px2, py2 = previous["bbox"]
+                overlap = max(0.0, min(x2, px2) - max(x1, px1)) * max(0.0, min(y2, py2) - max(y1, py1))
+                previous_area = (px2 - px1) * (py2 - py1)
+                if overlap / (area + previous_area - overlap) > self.iou_threshold:
+                    duplicate = True
+                    break
+            if not duplicate:
+                kept.append(detection)
+        return kept
 
     def inference(self, image_bgr: np.ndarray):
         img_tensor, scale, pad_h, pad_w, h, w = self.preprocess(image_bgr)
@@ -441,6 +472,8 @@ def main():
     parser.add_argument("--output", "-o", type=str, default=None)
     parser.add_argument("--model", "-m", type=str, default=str(DEFAULT_MODEL_PATH))
     parser.add_argument("--conf", type=float, default=0.20)
+    parser.add_argument("--iou", type=float, default=0.45,
+                        help="Per-class NMS IoU threshold for raw YOLO output")
     parser.add_argument("--max-frames", type=int, default=-1)
     parser.add_argument("--ppm", type=float, default=None,
                         help="Court-plane pixels per meter for approximate speed")
@@ -458,7 +491,7 @@ def main():
     # Target classes.
     target_classes = None if args.all_classes else [args.class_id]
     detector = YOLOv8Detector(str(model_path), conf_threshold=args.conf,
-                               target_classes=target_classes)
+                               target_classes=target_classes, iou_threshold=args.iou)
 
     output_dir = OUTPUT_DIR
     output_dir.mkdir(parents=True, exist_ok=True)

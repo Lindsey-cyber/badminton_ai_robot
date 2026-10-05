@@ -28,6 +28,8 @@ python scripts/benchmark.py --input assets/demo_inputs/badminton_sample.mp4 --mo
 
 The ball command needs a model already present at the specified path. The benchmark never silently downloads one. Reports include source reported FPS, measured processing throughput, p50/p95 ONNX `session.run` time, p50/p95 inference including preprocessing and postprocessing, p50/p95 read-start-to-result time, process CPU and RSS. Warmup and model loading are excluded. This sequential baseline has no bounded queue or driver frame counter, so dropped-frame rate and true exposure-to-result latency are `null`, **not zero**. File throughput is not camera FPS. Reports are environment-specific and no Raspberry Pi numbers are claimed here.
 
+The separate `demo_badminton_detection.py` can download a generic COCO ONNX model when absent. It selects COCO class 32 by default, clips boxes to the image and applies per-class IoU suppression to raw YOLO predictions (`--iou` defaults to 0.45). This fixes overlapping duplicate predictions, but there is no labeled shuttlecock evaluation and no checked-in ball model to benchmark the change here. For a future one-class exported model, pass its path and `--class-id 0` explicitly.
+
 ## Bounded pipeline replay
 
 After the sequential baseline, run the same recording at its metadata FPS through one capture worker and a bounded latest-frame queue:
