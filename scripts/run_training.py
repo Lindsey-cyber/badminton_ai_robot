@@ -45,15 +45,24 @@ def main() -> int:
                 store.create_session(session_id)
                 dispatcher = EventDispatcher()
                 dispatcher.subscribe(EventType.SHOT_CANDIDATE, store.append)
+                dispatcher.subscribe(EventType.PERFORMANCE_METRIC, store.append)
                 emitter = SessionEventEmitter(session_id, dispatcher)
                 processor = CandidateEventProcessor(candidate_detector, emitter)
+                metrics_count = 0
+
+                def publish_metrics(snapshot: dict[str, float | int]) -> None:
+                    nonlocal metrics_count
+                    emitter.emit(EventType.PERFORMANCE_METRIC, snapshot)
+                    metrics_count += 1
+
                 pipeline = VisionPipeline(
                     source, lambda image: pose.inference(image)[0],
                     on_result=lambda frame, detections: processor.process(frame.sequence, detections),
                     queue_size=args.queue_size,
+                    on_metrics=publish_metrics,
                 )
                 metrics = pipeline.run()
-                candidate_count = store.next_sequence(session_id)
+                candidate_count = processor.candidate_count
         finally:
             source.close()
     except (OSError, FileNotFoundError, ImportError, RuntimeError, ValueError) as exc:
@@ -74,6 +83,7 @@ def main() -> int:
         "source_reported_fps": source.fps,
         "threshold_px_s": args.threshold_px_s,
         "candidate_count": candidate_count,
+        "metrics_snapshot_count": metrics_count,
         "metrics": metrics,
         "limitations": [
             "Candidates are wrist-speed peaks, not confirmed racket-shuttle contacts.",

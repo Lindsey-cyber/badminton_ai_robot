@@ -82,16 +82,25 @@ class LatestFrameBuffer:
     def empty(self) -> bool:
         return self._queue.empty()
 
+    def depth(self) -> int:
+        return self._queue.qsize()
+
 
 class VisionPipeline:
     """Run capture in one worker; inference and output on the calling thread."""
 
     def __init__(self, source: FrameSource, infer: Callable[[Any], Any],
                  on_result: Callable[[CapturedFrame, Any], None] | None = None,
-                 queue_size: int = 2) -> None:
+                 queue_size: int = 2,
+                 on_metrics: Callable[[dict[str, float | int]], None] | None = None,
+                 metrics_interval_s: float = 1.0) -> None:
+        if not 0 < metrics_interval_s < float("inf"):
+            raise ValueError("metrics_interval_s must be positive and finite")
         self.source = source
         self.infer = infer
         self.on_result = on_result or (lambda _frame, _result: None)
+        self.on_metrics = on_metrics
+        self.metrics_interval_s = metrics_interval_s
         self.buffer = LatestFrameBuffer(queue_size)
         self._stop = threading.Event()
         self._producer_done = threading.Event()
@@ -127,6 +136,38 @@ class VisionPipeline:
         rss_mb: list[float] = []
         started = time.perf_counter()
         started_cpu = time.process_time()
+        window_started = started
+        window_cpu = started_cpu
+        window_inference: list[float] = []
+        window_latency: list[float] = []
+        last_dropped = 0
+
+        def publish_window(now: float) -> None:
+            nonlocal window_started, window_cpu, last_dropped
+            if self.on_metrics is None or not window_inference:
+                return
+            duration = max(now - window_started, 1e-9)
+            current_cpu = time.process_time()
+            inference_summary = _distribution(window_inference)
+            latency_summary = _distribution(window_latency)
+            snapshot = {
+                "window_s": round(duration, 3),
+                "processed_fps": round(len(window_inference) / duration, 3),
+                "inference_p50_ms": inference_summary["p50"],
+                "inference_p95_ms": inference_summary["p95"],
+                "read_to_output_p50_ms": latency_summary["p50"],
+                "read_to_output_p95_ms": latency_summary["p95"],
+                "queue_depth": self.buffer.depth(),
+                "dropped_frames": self.buffer.dropped - last_dropped,
+                "dropped_frames_total": self.buffer.dropped,
+                "process_cpu_percent_one_core_100": round((current_cpu - window_cpu) / duration * 100, 2),
+                "process_rss_mb": rss_mb[-1],
+            }
+            self.on_metrics(snapshot)
+            window_started, window_cpu, last_dropped = now, current_cpu, self.buffer.dropped
+            window_inference.clear()
+            window_latency.clear()
+
         worker = threading.Thread(target=self._capture, name="frame-capture", daemon=True)
         worker.start()
         try:
@@ -142,11 +183,18 @@ class VisionPipeline:
                 infer_done = time.perf_counter_ns()
                 self.on_result(frame, result)
                 output_done = time.perf_counter_ns()
-                inference_ms.append((infer_done - infer_start) / 1_000_000)
-                read_to_output_ms.append((output_done - frame.read_done_ns) / 1_000_000)
+                inference_sample = (infer_done - infer_start) / 1_000_000
+                latency_sample = (output_done - frame.read_done_ns) / 1_000_000
+                inference_ms.append(inference_sample)
+                read_to_output_ms.append(latency_sample)
+                window_inference.append(inference_sample)
+                window_latency.append(latency_sample)
                 rss_mb.append(_rss_mb())
+                if time.perf_counter() - window_started >= self.metrics_interval_s:
+                    publish_window(time.perf_counter())
             if self._capture_error is not None:
                 raise RuntimeError("Capture worker failed") from self._capture_error
+            publish_window(time.perf_counter())
         finally:
             self.stop()
             worker.join(timeout=2.0)

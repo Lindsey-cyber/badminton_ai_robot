@@ -14,6 +14,7 @@ from uuid import uuid4
 
 class EventType(str, Enum):
     SHOT_CANDIDATE = "ShotCandidate"
+    PERFORMANCE_METRIC = "PerformanceMetric"
 
 
 @dataclass(frozen=True)
@@ -154,6 +155,7 @@ class CandidateEventProcessor:
                  emitter: SessionEventEmitter) -> None:
         self.detector = detector
         self.emitter = emitter
+        self.candidate_count = 0
 
     def process(self, frame_index: int, detections: list[dict]) -> Event | None:
         if detections:
@@ -167,10 +169,12 @@ class CandidateEventProcessor:
         candidate = self.detector.observe(frame_index, *wrists)
         if candidate is None:
             return None
-        return self.emitter.emit(EventType.SHOT_CANDIDATE, {
+        event = self.emitter.emit(EventType.SHOT_CANDIDATE, {
             "frame_index": candidate.frame_index,
             "video_time_s": candidate.video_time_s,
             "hand": candidate.hand,
             "wrist_speed_px_s": round(candidate.wrist_speed_px_s, 3),
             "threshold_px_s": self.detector.min_speed,
         })
+        self.candidate_count += 1
+        return event

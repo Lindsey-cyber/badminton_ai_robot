@@ -36,6 +36,10 @@ class ApiTests(unittest.TestCase):
                     second = {**body, "event_id": "e1", "sequence": 1}
                     self.assertEqual(client.post("/events", json=second).status_code, 200)
                     self.assertEqual(websocket.receive_json()["event_id"], "e1")
+                    metric = {**body, "event_id": "m2", "sequence": 2,
+                              "type": "PerformanceMetric", "payload": {"processed_fps": 18.0}}
+                    self.assertEqual(client.post("/events", json=metric).status_code, 200)
+                    self.assertEqual(websocket.receive_json()["type"], "PerformanceMetric")
                 self.assertEqual([e["sequence"] for e in client.get(
                     "/sessions/s/events?after_sequence=0&limit=1").json()], [1])
                 self.assertEqual(client.get("/sessions/s/events?limit=0").status_code, 422)

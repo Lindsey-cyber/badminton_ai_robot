@@ -68,6 +68,30 @@ class PipelineTests(unittest.TestCase):
             VisionPipeline(source, fail).run()
         self.assertTrue(source.closed)
 
+    def test_window_metrics_report_queue_and_latency(self):
+        source = BurstSource(30)
+        windows = []
+        pipeline = VisionPipeline(source, lambda value: (time.sleep(0.002), value)[1],
+                                  queue_size=2, on_metrics=windows.append,
+                                  metrics_interval_s=0.001)
+        result = pipeline.run()
+        self.assertTrue(windows)
+        self.assertEqual(windows[-1]["dropped_frames_total"], result["dropped_frames"])
+        self.assertGreater(windows[-1]["inference_p95_ms"], 0)
+        self.assertLessEqual(windows[-1]["queue_depth"], 2)
+        self.assertGreater(windows[-1]["process_rss_mb"], 0)
+
+    def test_metrics_sink_failure_stops_capture(self):
+        source = BurstSource(30)
+
+        def fail(_snapshot):
+            raise RuntimeError("metrics sink failed")
+
+        with self.assertRaisesRegex(RuntimeError, "metrics sink failed"):
+            VisionPipeline(source, lambda value: value, on_metrics=fail,
+                           metrics_interval_s=0.000001).run()
+        self.assertTrue(source.closed)
+
 
 if __name__ == "__main__":
     unittest.main()
