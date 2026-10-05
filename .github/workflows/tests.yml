@@ -1,0 +1,23 @@
+name: Software tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install software dependencies
+        run: python -m pip install -r requirements-dev.txt
+      - name: Verify recorded integration inputs
+        run: test -s assets/demo_inputs/badminton_sample.mp4 && test -s src/pose/yolov8n-pose.onnx
+      - name: Run software and recorded-video tests
+        run: python -m pytest tests -q
