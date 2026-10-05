@@ -19,6 +19,8 @@ Scope: `main` at `962603a35d7ce110a6a45ccd9cc2ec0267dd481e`. This is a source in
 
 The HTML report generator's `--demo` branch seeds synthetic shot and ball-speed values and sets `avg_infer_ms` to 48.3. Its reports and the generated pose video must be labelled synthetic, never used as model evaluation or throughput evidence. `video_batch_infer.py` previously measured an empty loop when models failed to load, and suppressed inference exceptions; phase 1 now fails those cases rather than publishing misleading values.
 
+Later software cleanup removed the legacy report generator rather than extending its unvalidated physical estimates, and removed the redundant self-installing `setup_and_fix.py`. Historical report artifacts are retained with an explicit provenance notice in `outputs/reports/README.md`.
+
 ## Keep and improve
 
 - Keep the ONNX pose pre/postprocessing and video demo as the baseline integration path. Verify its keypoint output against annotated data before using pose metrics for coaching.

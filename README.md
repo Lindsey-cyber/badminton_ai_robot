@@ -12,7 +12,7 @@ python scripts/demo_badminton_detection.py --input assets/demo_inputs/badminton_
 python scripts/stereo_distance_demo.py --mode simulate
 ```
 
-The ball demo may download a generic YOLOv8n model. It searches the COCO `sports ball` class; its detections are not validated shuttlecock detections. The pose demo uses the checked-in `src/pose/yolov8n-pose.onnx` model. `scripts/generate_training_report.py --demo` uses generated data and its numbers must not be treated as measured performance.
+The ball demo may download a generic YOLOv8n model. It searches the COCO `sports ball` class; its detections are not validated shuttlecock detections. The pose demo uses the checked-in `src/pose/yolov8n-pose.onnx` model. Historical HTML reports in `outputs/reports/` contain heuristic and synthetic quantities; they are not measured performance or model evaluation.
 
 The ball demo defaults to COCO class 32. Class 0 in that model is **person**. If you supply a separately trained one-class shuttlecock model, pass `--model path/to/model.onnx --class-id 0` after verifying the model's output class mapping. Tracking and apparent speed calculations live in `src/badminton_ai/tracking.py`. A court-width pixel scale cannot recover the 3D speed of a flying shuttle; its converted speed is an approximation, not a measured physical speed.
 
@@ -114,6 +114,8 @@ Install `requirements-dev.txt` and run `python -m pytest tests -q`. GitHub Actio
 No labeled shuttlecock dataset exists in the repository; the generic COCO sports-ball model is not fine-tuned. The [dataset guide](docs/shuttle_dataset.md) defines the one-class train/val/test layout and the validation command that generates an actual Ultralytics `data.yaml` once real labels are supplied. Exact duplicate images and malformed boxes are rejected, but nearby frames from a single video must be grouped by recording before splitting. No accuracy metric has been measured.
 
 `scripts/train_shuttle.py` is the runnable fine-tuning, held-out evaluation and fixed-shape ONNX export entry point once labeled data is available. It writes a report with measured test metrics and model hashes only after a real training run. Use `--class-id 0` with the exported one-class model in the ball demo and benchmarks; the generic COCO model uses class 32. Export compatibility is checked before writing the report. Target-device inference latency still requires a separate benchmark; no trained weights or training result is claimed here.
+
+The old self-installing `setup_and_fix.py` and heuristic HTML report generator were removed. The former could download or overwrite model files as a side effect; the latter substituted assumed quantities, including shuttle speed, and its demo generated synthetic metrics. Install from the explicit requirements files and use the measured JSON tools above. Existing HTML artifacts remain as historical examples with [provenance notes](outputs/reports/README.md).
 
 ## Development order
 
