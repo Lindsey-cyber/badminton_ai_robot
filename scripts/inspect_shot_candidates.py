@@ -11,6 +11,7 @@ from uuid import uuid4
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 from badminton_ai.events import EventDispatcher, EventType, SessionEventEmitter, ShotCandidateDetector, Wrist
+from badminton_ai.storage import EventStore
 from benchmark import make_detector, report_path
 
 
@@ -23,6 +24,7 @@ def main() -> int:
     parser.add_argument("--min-gap-s", type=float, default=0.25)
     parser.add_argument("--max-frames", type=int, default=300)
     parser.add_argument("--session-id", default=None)
+    parser.add_argument("--db", type=Path, help="Optional SQLite event log")
     parser.add_argument("--output", type=Path, default=ROOT / "outputs/shot_candidates.json")
     args = parser.parse_args()
     if not args.input.is_file() or args.max_frames < 1:
@@ -47,9 +49,16 @@ def main() -> int:
             "type": event.type.value,
             "payload": dict(event.payload),
         }))
-        emitter = SessionEventEmitter(args.session_id or str(uuid4()), dispatcher)
+        session_id = args.session_id or str(uuid4())
+        store = None
         processed = 0
         try:
+            if args.db is not None:
+                store = EventStore(args.db)
+                store.create_session(session_id)
+                dispatcher.subscribe(EventType.SHOT_CANDIDATE, store.append)
+            emitter = SessionEventEmitter(session_id, dispatcher,
+                                          store.next_sequence(session_id) if store else 0)
             for frame_index in range(args.max_frames):
                 ok, image = capture.read()
                 if not ok:
@@ -75,6 +84,8 @@ def main() -> int:
                 processed += 1
         finally:
             capture.release()
+            if store is not None:
+                store.close()
     except (FileNotFoundError, ImportError, RuntimeError, ValueError) as exc:
         parser.exit(1, f"Candidate inspection failed: {exc}\n")
 

@@ -43,12 +43,15 @@ class EventDispatcher:
 class SessionEventEmitter:
     """Assign monotonic sequence numbers within one session."""
 
-    def __init__(self, session_id: str, dispatcher: EventDispatcher) -> None:
+    def __init__(self, session_id: str, dispatcher: EventDispatcher,
+                 starting_sequence: int = 0) -> None:
         if not session_id:
             raise ValueError("session_id is required")
+        if starting_sequence < 0:
+            raise ValueError("starting_sequence must be nonnegative")
         self.session_id = session_id
         self.dispatcher = dispatcher
-        self._next_sequence = 0
+        self._next_sequence = starting_sequence
 
     def emit(self, event_type: EventType, payload: Mapping[str, str | int | float]) -> Event:
         event = Event(str(uuid4()), self.session_id, self._next_sequence,
