@@ -1,0 +1,220 @@
+"""One capture worker and a bounded, latest-frame inference loop.
+
+The producer keeps the newest frame when inference falls behind. Timestamps
+start after source.read() returns; camera exposure and driver buffering are
+outside this software boundary.
+"""
+
+from dataclasses import dataclass
+import os
+from pathlib import Path
+import queue
+import resource
+import statistics
+import sys
+import threading
+import time
+from typing import Any, Callable, Protocol
+
+
+class FrameSource(Protocol):
+    def read(self) -> tuple[bool, Any]: ...
+    def close(self) -> None: ...
+
+
+@dataclass(frozen=True)
+class CapturedFrame:
+    sequence: int
+    read_done_ns: int
+    image: Any
+
+
+def _percentile(values: list[float], percent: float) -> float:
+    ordered = sorted(values)
+    index = (len(ordered) - 1) * percent / 100
+    lower = int(index)
+    return ordered[lower] + (ordered[min(lower + 1, len(ordered) - 1)] - ordered[lower]) * (index - lower)
+
+
+def _distribution(values: list[float]) -> dict[str, float]:
+    return {"p50": round(_percentile(values, 50), 3),
+            "p95": round(_percentile(values, 95), 3),
+            "mean": round(statistics.fmean(values), 3)}
+
+
+def _rss_mb() -> float:
+    try:
+        with open("/proc/self/statm", encoding="ascii") as statm:
+            pages = int(statm.read().split()[1])
+        return pages * os.sysconf("SC_PAGE_SIZE") / 1_000_000
+    except (OSError, IndexError, ValueError):
+        peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        return peak / (1_000_000 if sys.platform == "darwin" else 1000)
+
+
+class LatestFrameBuffer:
+    """Thread-safe bounded queue; only the capture thread inserts frames."""
+
+    def __init__(self, capacity: int = 2) -> None:
+        if capacity < 1:
+            raise ValueError("capacity must be positive")
+        self._queue: queue.Queue[CapturedFrame] = queue.Queue(maxsize=capacity)
+        self.dropped = 0
+        self.max_depth = 0
+
+    def put(self, frame: CapturedFrame) -> None:
+        while True:
+            try:
+                self._queue.put_nowait(frame)
+                self.max_depth = max(self.max_depth, self._queue.qsize())
+                return
+            except queue.Full:
+                try:
+                    self._queue.get_nowait()
+                    self.dropped += 1
+                except queue.Empty:
+                    # The consumer freed the slot after put_nowait saw Full.
+                    pass
+
+    def get(self, timeout: float) -> CapturedFrame:
+        return self._queue.get(timeout=timeout)
+
+    def empty(self) -> bool:
+        return self._queue.empty()
+
+
+class VisionPipeline:
+    """Run capture in one worker; inference and output on the calling thread."""
+
+    def __init__(self, source: FrameSource, infer: Callable[[Any], Any],
+                 on_result: Callable[[CapturedFrame, Any], None] | None = None,
+                 queue_size: int = 2) -> None:
+        self.source = source
+        self.infer = infer
+        self.on_result = on_result or (lambda _frame, _result: None)
+        self.buffer = LatestFrameBuffer(queue_size)
+        self._stop = threading.Event()
+        self._producer_done = threading.Event()
+        self._capture_error: Exception | None = None
+        self._captured = 0
+        self._capture_start_ns = 0
+        self._capture_end_ns = 0
+
+    def stop(self) -> None:
+        self._stop.set()
+        self.source.close()
+
+    def _capture(self) -> None:
+        self._capture_start_ns = time.perf_counter_ns()
+        try:
+            while not self._stop.is_set():
+                ok, image = self.source.read()
+                if not ok:
+                    break
+                stamp = time.perf_counter_ns()
+                self.buffer.put(CapturedFrame(self._captured, stamp, image))
+                self._captured += 1
+        except Exception as exc:
+            self._capture_error = exc
+        finally:
+            self._capture_end_ns = time.perf_counter_ns()
+            self._producer_done.set()
+
+    def run(self) -> dict[str, Any]:
+        """Return measured software metrics or raise on source/inference failure."""
+        inference_ms: list[float] = []
+        read_to_output_ms: list[float] = []
+        rss_mb: list[float] = []
+        started = time.perf_counter()
+        started_cpu = time.process_time()
+        worker = threading.Thread(target=self._capture, name="frame-capture", daemon=True)
+        worker.start()
+        try:
+            while not self._producer_done.is_set() or not self.buffer.empty():
+                if self._capture_error is not None:
+                    raise RuntimeError("Capture worker failed") from self._capture_error
+                try:
+                    frame = self.buffer.get(timeout=0.05)
+                except queue.Empty:
+                    continue
+                infer_start = time.perf_counter_ns()
+                result = self.infer(frame.image)
+                infer_done = time.perf_counter_ns()
+                self.on_result(frame, result)
+                output_done = time.perf_counter_ns()
+                inference_ms.append((infer_done - infer_start) / 1_000_000)
+                read_to_output_ms.append((output_done - frame.read_done_ns) / 1_000_000)
+                rss_mb.append(_rss_mb())
+            if self._capture_error is not None:
+                raise RuntimeError("Capture worker failed") from self._capture_error
+        finally:
+            self.stop()
+            worker.join(timeout=2.0)
+            if worker.is_alive():
+                raise RuntimeError("Capture worker did not stop within 2 seconds")
+
+        wall_s = time.perf_counter() - started
+        if not inference_ms:
+            raise RuntimeError("No frames were processed")
+        capture_s = (self._capture_end_ns - self._capture_start_ns) / 1_000_000_000
+        return {
+            "captured_frames": self._captured,
+            "processed_frames": len(inference_ms),
+            "dropped_frames": self.buffer.dropped,
+            "dropped_frame_rate": round(self.buffer.dropped / self._captured, 4),
+            "max_queue_depth": self.buffer.max_depth,
+            "captured_fps": round(self._captured / capture_s, 3),
+            "processed_fps": round(len(inference_ms) / wall_s, 3),
+            "inference_ms": _distribution(inference_ms),
+            "read_to_output_ms": _distribution(read_to_output_ms),
+            "process_cpu_percent_one_core_100": round((time.process_time() - started_cpu) / wall_s * 100, 2),
+            "process_rss_mb": _distribution(rss_mb),
+            "wall_s": round(wall_s, 3),
+            "camera_exposure_to_output_ms": None,
+        }
+
+
+class VideoFileSource:
+    """Replay a recorded video at its metadata FPS for repeatable load tests."""
+
+    def __init__(self, path: Path, max_frames: int | None = None) -> None:
+        try:
+            import cv2
+        except ImportError as exc:
+            raise RuntimeError("OpenCV is required for video replay") from exc
+        if max_frames is not None and max_frames < 1:
+            raise ValueError("max_frames must be positive")
+        self._cap = cv2.VideoCapture(str(path))
+        if not self._cap.isOpened():
+            self._cap.release()
+            raise RuntimeError(f"Cannot open video: {path}")
+        self.fps = self._cap.get(cv2.CAP_PROP_FPS)
+        if not self.fps or self.fps <= 0:
+            self._cap.release()
+            raise RuntimeError("Video has no valid FPS metadata")
+        self.max_frames = max_frames
+        self._frames_read = 0
+        self._started: float | None = None
+        self._closed = threading.Event()
+
+    def read(self) -> tuple[bool, Any]:
+        if self._closed.is_set():
+            return False, None
+        if self.max_frames is not None and self._frames_read >= self.max_frames:
+            return False, None
+        if self._started is None:
+            self._started = time.perf_counter()
+        target = self._started + self._frames_read / self.fps
+        delay = target - time.perf_counter()
+        if delay > 0 and self._closed.wait(delay):
+            return False, None
+        if self._closed.is_set():
+            return False, None
+        ok, frame = self._cap.read()
+        if ok:
+            self._frames_read += 1
+        return ok, frame
+
+    def close(self) -> None:
+        self._closed.set()
+        self._cap.release()

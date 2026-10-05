@@ -28,6 +28,16 @@ python scripts/benchmark.py --input assets/demo_inputs/badminton_sample.mp4 --mo
 
 The ball command needs a model already present at the specified path. The benchmark never silently downloads one. Reports include source reported FPS, measured processing throughput, p50/p95 ONNX `session.run` time, p50/p95 inference including preprocessing and postprocessing, p50/p95 read-start-to-result time, process CPU and RSS. Warmup and model loading are excluded. This sequential baseline has no bounded queue or driver frame counter, so dropped-frame rate and true exposure-to-result latency are `null`, **not zero**. File throughput is not camera FPS. Reports are environment-specific and no Raspberry Pi numbers are claimed here.
 
+## Bounded pipeline replay
+
+After the sequential baseline, run the same recording at its metadata FPS through one capture worker and a bounded latest-frame queue:
+
+```bash
+python scripts/benchmark_pipeline.py --input assets/demo_inputs/badminton_sample.mp4 --mode pose --frames 200 --warmup 10 --queue-size 2 --output outputs/benchmarks/pipeline_replay_pose.json
+```
+
+The report adds capture/processing FPS, software queue depth and dropped-frame rate, p50/p95 inference and read-to-output latency, CPU and RSS. On overflow the queue discards the oldest frame to keep inference fresh. One capture worker lets capture continue during inference; the calling thread runs inference and output. Software drops exclude camera-driver drops. Read-to-output begins **after** decoding and is not exposure-to-output latency. A capture or inference failure aborts without producing a successful report.
+
 Run the software tests without a camera or ONNX runtime:
 
 ```bash
@@ -36,4 +46,4 @@ python -m unittest discover -s tests -v
 
 ## Development order
 
-Use recorded video to develop and test inference, tracking, events, storage and a robot simulator before integrating hardware. Preserve the existing ONNX demo while extracting its independent responsibilities into a small package. A bounded latest-frame queue will address stale camera frames; its drop behavior needs a reproducible software test before Pi profiling. The historical ~30 FPS Pi screenshot is a clue, not a current benchmark. The [audit](docs/repository_audit.md) records hardware and training-data gates.
+Use recorded video to develop and test inference, tracking, events, storage and a robot simulator before integrating hardware. Preserve the existing ONNX demo while extracting independent responsibilities into a small package. The bounded queue is covered by software failure and overflow tests, but its Pi performance remains unmeasured. The historical ~30 FPS Pi screenshot is a clue, not a current benchmark. The [audit](docs/repository_audit.md) records hardware and training-data gates.
