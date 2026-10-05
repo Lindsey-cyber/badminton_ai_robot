@@ -46,6 +46,16 @@ Run the software tests without a camera or ONNX runtime:
 python -m unittest discover -s tests -v
 ```
 
+## Exploratory shot candidates
+
+The existing report script guesses shot frames from arm-speed peaks and extrapolates shuttle speed from wrist speed. There is no labeled rally set to validate those guesses. The new in-process event module deliberately reports **ShotCandidate**, not confirmed `ShotDetected`:
+
+```bash
+python scripts/inspect_shot_candidates.py --input assets/demo_inputs/badminton_sample.mp4 --threshold-px-s 300 --max-frames 200 --output outputs/shot_candidates.json
+```
+
+The threshold is an exploratory image-pixel value, not a calibrated physical speed. The command writes session IDs, unique event IDs, ordered sequence numbers, UTC processing timestamps and video-relative frame times. It selects the largest detected person per frame, so player identity can switch; a wrist-speed peak can occur without racket contact. A smoke run completed 200 checked-in video frames and emitted five **unverified** candidates with this threshold. No shot precision or recall is claimed. `src/badminton_ai/events.py` keeps dispatch synchronous in one process; a queue or network broker would not solve a current requirement.
+
 ## Development order
 
 Use recorded video to develop and test inference, tracking, events, storage and a robot simulator before integrating hardware. Preserve the existing ONNX demo while extracting independent responsibilities into a small package. The bounded queue is covered by software failure and overflow tests, but its Pi performance remains unmeasured. The historical ~30 FPS Pi screenshot is a clue, not a current benchmark. The [audit](docs/repository_audit.md) records hardware and training-data gates.
