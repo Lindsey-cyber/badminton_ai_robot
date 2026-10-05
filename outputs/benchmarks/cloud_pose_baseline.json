@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "recorded_at_utc": "2026-10-05T18:00:08.399604+00:00",
+  "platform": "Linux-6.18.44-x86_64-with-glibc2.39",
+  "python": "3.12.14",
+  "runtime_versions": {
+    "numpy": "2.5.3",
+    "opencv-python-headless": "5.0.0.93",
+    "onnxruntime": "1.30.0"
+  },
+  "mode": "pose",
+  "model": "src/pose/yolov8n-pose.onnx",
+  "model_size_bytes": 13514572,
+  "model_sha256": "3d7232577f2990ed5f45171fba368092ea2c9e395d301e87d508620062aa6ddd",
+  "providers": [
+    "AzureExecutionProvider",
+    "CPUExecutionProvider"
+  ],
+  "input": "assets/demo_inputs/badminton_sample.mp4",
+  "input_kind": "video",
+  "source_reported_fps": 24.0,
+  "warmup_frames": 10,
+  "processed_frames": 200,
+  "read_failures": 0,
+  "measured_wall_s": 11.279,
+  "processed_fps": 17.732,
+  "ort_run_ms": {
+    "p50": 50.461,
+    "p95": 67.392,
+    "mean": 52.239
+  },
+  "inference_with_pre_post_ms": {
+    "p50": 53.309,
+    "p95": 70.441,
+    "mean": 55.052
+  },
+  "read_start_to_result_ms": {
+    "p50": 54.768,
+    "p95": 71.763,
+    "mean": 56.321
+  },
+  "process_cpu_percent_one_core_100": 407.36,
+  "process_rss_mb": {
+    "p50": 239.992,
+    "p95": 240.284,
+    "mean": 240.054
+  },
+  "dropped_frames": null,
+  "dropped_frame_rate": null,
+  "camera_capture_to_result_ms": null,
+  "limitations": [
+    "Sequential capture/inference; no producer-consumer queue exists yet.",
+    "OpenCV provides no camera exposure timestamp or driver drop counter here.",
+    "Recorded video throughput is not real-time camera input FPS.",
+    "CPU percent is process CPU time divided by wall time; 100% means one core."
+  ]
+}

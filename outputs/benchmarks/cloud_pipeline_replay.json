@@ -1,0 +1,53 @@
+{
+  "captured_frames": 200,
+  "processed_frames": 153,
+  "dropped_frames": 47,
+  "dropped_frame_rate": 0.235,
+  "max_queue_depth": 2,
+  "captured_fps": 24.118,
+  "processed_fps": 18.064,
+  "inference_ms": {
+    "p50": 54.693,
+    "p95": 72.259,
+    "mean": 55.158
+  },
+  "read_to_output_ms": {
+    "p50": 116.583,
+    "p95": 146.958,
+    "mean": 116.208
+  },
+  "process_cpu_percent_one_core_100": 411.7,
+  "process_rss_mb": {
+    "p50": 263.7,
+    "p95": 266.42,
+    "mean": 264.788
+  },
+  "wall_s": 8.47,
+  "camera_exposure_to_output_ms": null,
+  "schema_version": 1,
+  "recorded_at_utc": "2026-10-05T18:00:21.251281+00:00",
+  "platform": "Linux-6.18.44-x86_64-with-glibc2.39",
+  "python": "3.12.14",
+  "runtime_versions": {
+    "numpy": "2.5.3",
+    "opencv-python-headless": "5.0.0.93",
+    "onnxruntime": "1.30.0"
+  },
+  "mode": "pose",
+  "input": "assets/demo_inputs/badminton_sample.mp4",
+  "source_reported_fps": 24.0,
+  "model": "src/pose/yolov8n-pose.onnx",
+  "model_size_bytes": 13514572,
+  "model_sha256": "3d7232577f2990ed5f45171fba368092ea2c9e395d301e87d508620062aa6ddd",
+  "providers": [
+    "AzureExecutionProvider",
+    "CPUExecutionProvider"
+  ],
+  "warmup_frames": 10,
+  "queue_capacity": 2,
+  "limitations": [
+    "Recorded video is paced by metadata FPS; it is not a physical camera.",
+    "Read-to-output begins after decoder read, not at camera exposure.",
+    "Drops count frames removed from this software queue, not camera-driver drops."
+  ]
+}

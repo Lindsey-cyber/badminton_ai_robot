@@ -6,6 +6,8 @@ No frames are intentionally dropped, and camera capture timestamps are unavailab
 """
 
 import argparse
+import hashlib
+from importlib import metadata
 import json
 import os
 import platform
@@ -18,6 +20,33 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def report_path(path: Path) -> str:
+    """Use a repository-relative path when the input belongs to this checkout."""
+    resolved = path.resolve()
+    try:
+        return str(resolved.relative_to(ROOT))
+    except ValueError:
+        return str(resolved)
+
+
+def file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def runtime_versions() -> dict[str, str | None]:
+    versions = {}
+    for package in ("numpy", "opencv-python-headless", "onnxruntime"):
+        try:
+            versions[package] = metadata.version(package)
+        except metadata.PackageNotFoundError:
+            versions[package] = None
+    return versions
 
 
 def percentile(values: list[float], percent: float) -> float:
@@ -122,11 +151,13 @@ def run(args: argparse.Namespace) -> dict:
         "recorded_at_utc": datetime.now(timezone.utc).isoformat(),
         "platform": platform.platform(),
         "python": platform.python_version(),
+        "runtime_versions": runtime_versions(),
         "mode": args.mode,
-        "model": str(model_path),
+        "model": report_path(model_path),
         "model_size_bytes": model_path.stat().st_size,
+        "model_sha256": file_sha256(model_path),
         "providers": detector.session.get_providers(),
-        "input": str(args.input) if args.camera is None else f"camera:{args.camera}",
+        "input": report_path(args.input) if args.camera is None else f"camera:{args.camera}",
         "input_kind": "video" if args.camera is None else "camera",
         "source_reported_fps": source_fps,
         "warmup_frames": args.warmup,

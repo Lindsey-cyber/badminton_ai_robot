@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from badminton_ai.pipeline import VideoFileSource, VisionPipeline
-from benchmark import make_detector
+from benchmark import file_sha256, make_detector, report_path, runtime_versions
 
 
 def main() -> int:
@@ -56,11 +56,13 @@ def main() -> int:
         "recorded_at_utc": datetime.now(timezone.utc).isoformat(),
         "platform": platform.platform(),
         "python": platform.python_version(),
+        "runtime_versions": runtime_versions(),
         "mode": args.mode,
-        "input": str(args.input.resolve()),
+        "input": report_path(args.input),
         "source_reported_fps": source.fps,
-        "model": str(model.resolve()),
+        "model": report_path(model),
         "model_size_bytes": model.stat().st_size,
+        "model_sha256": file_sha256(model.resolve()),
         "providers": detector.session.get_providers(),
         "warmup_frames": args.warmup,
         "queue_capacity": args.queue_size,

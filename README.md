@@ -38,6 +38,8 @@ python scripts/benchmark_pipeline.py --input assets/demo_inputs/badminton_sample
 
 The report adds capture/processing FPS, software queue depth and dropped-frame rate, p50/p95 inference and read-to-output latency, CPU and RSS. On overflow the queue discards the oldest frame to keep inference fresh. One capture worker lets capture continue during inference; the calling thread runs inference and output. Software drops exclude camera-driver drops. Read-to-output begins **after** decoding and is not exposure-to-output latency. A capture or inference failure aborts without producing a successful report.
 
+An [x86 cloud recorded-video benchmark](docs/cloud_benchmark_2026-10-05.md) and its raw JSON reports are checked in. The paced 24 FPS replay processed 153 of 200 frames at 18.064 FPS and discarded 47 old frames in its software queue. The sequential run processed 200 frames at 17.732 FPS. These figures are specific to that cloud run; Pi FPS, camera-driver drops and exposure latency remain unmeasured.
+
 Run the software tests without a camera or ONNX runtime:
 
 ```bash
