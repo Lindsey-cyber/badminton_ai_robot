@@ -14,6 +14,8 @@ python scripts/stereo_distance_demo.py --mode simulate
 
 The ball demo may download a generic YOLOv8n model. It searches the COCO `sports ball` class; its detections are not validated shuttlecock detections. The pose demo uses the checked-in `src/pose/yolov8n-pose.onnx` model. `scripts/generate_training_report.py --demo` uses generated data and its numbers must not be treated as measured performance.
 
+The ball demo defaults to COCO class 32. Class 0 in that model is **person**. If you supply a separately trained one-class shuttlecock model, pass `--model path/to/model.onnx --class-id 0` after verifying the model's output class mapping. Tracking and apparent speed calculations live in `src/badminton_ai/tracking.py`. A court-width pixel scale cannot recover the 3D speed of a flying shuttle; its converted speed is an approximation, not a measured physical speed.
+
 ## Reproducible sequential baseline
 
 Run this **before** changing the inference implementation, ideally on the Raspberry Pi using the same input, model, power mode and environment for later comparisons:
@@ -26,12 +28,12 @@ python scripts/benchmark.py --input assets/demo_inputs/badminton_sample.mp4 --mo
 
 The ball command needs a model already present at the specified path. The benchmark never silently downloads one. Reports include source reported FPS, measured processing throughput, p50/p95 ONNX `session.run` time, p50/p95 inference including preprocessing and postprocessing, p50/p95 read-start-to-result time, process CPU and RSS. Warmup and model loading are excluded. This sequential baseline has no bounded queue or driver frame counter, so dropped-frame rate and true exposure-to-result latency are `null`, **not zero**. File throughput is not camera FPS. Reports are environment-specific and no Raspberry Pi numbers are claimed here.
 
-Run the benchmark's dependency-free tests:
+Run the software tests without a camera or ONNX runtime:
 
 ```bash
 python -m unittest discover -s tests -v
 ```
 
-## Next stage
+## Development order
 
-Preserve the existing ONNX demo while extracting the measured capture and inference responsibilities into a small package. Add a bounded latest-frame queue only after a real camera baseline exposes latency accumulation. Training, robot, backend and dashboard work depend on actual data or protocol evidence; the [audit](docs/repository_audit.md) records those gates.
+Use recorded video to develop and test inference, tracking, events, storage and a robot simulator before integrating hardware. Preserve the existing ONNX demo while extracting its independent responsibilities into a small package. A bounded latest-frame queue will address stale camera frames; its drop behavior needs a reproducible software test before Pi profiling. The historical ~30 FPS Pi screenshot is a clue, not a current benchmark. The [audit](docs/repository_audit.md) records hardware and training-data gates.

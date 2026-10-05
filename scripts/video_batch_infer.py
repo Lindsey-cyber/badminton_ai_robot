@@ -85,7 +85,7 @@ def batch_infer(
             from demo_badminton_detection import YOLOv8Detector, download_model as dl_det
             from pathlib import Path as P
             if dl_det(P(detect_model_path)):
-                detect_model = YOLOv8Detector(detect_model_path)
+                detect_model = YOLOv8Detector(detect_model_path, target_classes=[32])
                 logger.info("Detection model loaded")
         except Exception as e:
             logger.warning(f"Detection model failed to load: {e}")

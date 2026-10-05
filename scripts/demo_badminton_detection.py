@@ -57,6 +57,8 @@ logger = logging.getLogger(__name__)
 
 SCRIPT_DIR = Path(__file__).parent
 PROJECT_ROOT = SCRIPT_DIR.parent
+sys.path.insert(0, str(PROJECT_ROOT / "src"))
+from badminton_ai.tracking import BallKalmanFilter, SpeedEstimator
 MODEL_DIR = PROJECT_ROOT / "src" / "perception"
 DEFAULT_MODEL_PATH = MODEL_DIR / "yolov8n.onnx"
 OUTPUT_DIR = PROJECT_ROOT / "outputs" / "demo_videos"
@@ -65,11 +67,11 @@ BENCHMARK_DIR = PROJECT_ROOT / "outputs" / "benchmarks"
 # YOLOv8n ONNX 下载地址
 MODEL_URL = "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolov8n.onnx"
 
-# COCO 类别中与球相关的 class ID
-# 32: sports ball
-# 若使用专项羽毛球模型，class ID = 0 (shuttlecock)
-BALL_CLASS_IDS = {32: "sports ball", 0: "shuttlecock"}
-TARGET_CLASS_IDS = [32, 0]  # 优先检测这些类别
+# The generic COCO model uses class 32 for sports ball. Its class 0 is person.
+# A future shuttlecock-specific model may use class 0, but that must be
+# selected explicitly after validating its class mapping.
+BALL_CLASS_IDS = {32: "sports ball"}
+TARGET_CLASS_IDS = [32]
 
 # 轨迹颜色（从淡到深，表示历史→现在）
 TRAJECTORY_COLORS = [
@@ -212,109 +214,6 @@ class YOLOv8Detector:
 
 
 # =============================================================================
-# 卡尔曼滤波器（球的轨迹平滑）
-# =============================================================================
-
-class BallKalmanFilter:
-    """2D 卡尔曼滤波，状态: [x, y, vx, vy]"""
-
-    def __init__(self):
-        self.initialized = False
-        self.state = np.zeros(4)      # [x, y, vx, vy]
-        self.P = np.eye(4) * 100      # 协方差
-        self.Q = np.eye(4) * 1        # 过程噪声
-        self.R = np.eye(2) * 10       # 观测噪声
-        self.F = np.array([           # 状态转移矩阵
-            [1, 0, 1, 0],
-            [0, 1, 0, 1],
-            [0, 0, 1, 0],
-            [0, 0, 0, 1],
-        ], dtype=float)
-        self.H = np.array([           # 观测矩阵
-            [1, 0, 0, 0],
-            [0, 1, 0, 0],
-        ], dtype=float)
-
-    def update(self, measurement: tuple):
-        z = np.array(measurement, dtype=float)
-        if not self.initialized:
-            self.state[:2] = z
-            self.initialized = True
-            return self.state[:2]
-
-        # 预测
-        x_pred = self.F @ self.state
-        P_pred = self.F @ self.P @ self.F.T + self.Q
-
-        # 更新
-        y = z - self.H @ x_pred
-        S = self.H @ P_pred @ self.H.T + self.R
-        K = P_pred @ self.H.T @ np.linalg.inv(S)
-        self.state = x_pred + K @ y
-        self.P = (np.eye(4) - K @ self.H) @ P_pred
-
-        return self.state[:2]
-
-    def predict_next(self, n_steps: int = 5):
-        """预测未来 n_steps 步的位置"""
-        predicted = []
-        state = self.state.copy()
-        for _ in range(n_steps):
-            state = self.F @ state
-            predicted.append(state[:2].copy())
-        return predicted
-
-
-# =============================================================================
-# 速度估计器
-# =============================================================================
-
-class SpeedEstimator:
-    """基于像素位移的单目速度估计"""
-
-    def __init__(self, fps: float, pixels_per_meter: float = None):
-        """
-        fps: 视频帧率
-        pixels_per_meter: 像素/米标定值（None = 仅输出像素速度）
-        """
-        self.fps = fps
-        self.pixels_per_meter = pixels_per_meter
-        self.prev_pos = None
-        self.speeds = deque(maxlen=10)  # 滑动窗口平均
-
-    def calibrate_from_court(self, court_width_px: float, court_width_m: float = 6.1):
-        """从球场宽度标定像素/米比例"""
-        self.pixels_per_meter = court_width_px / court_width_m
-        logger.info(f"标定完成: {self.pixels_per_meter:.1f} pixels/meter")
-
-    def update(self, position: tuple) -> dict:
-        """更新位置，返回速度信息"""
-        if self.prev_pos is None:
-            self.prev_pos = position
-            return {"pixel_speed": 0, "speed_kmh": None, "speed_ms": None}
-
-        dx = position[0] - self.prev_pos[0]
-        dy = position[1] - self.prev_pos[1]
-        pixel_dist = np.sqrt(dx**2 + dy**2)
-        pixel_speed = pixel_dist * self.fps  # 像素/秒
-
-        self.prev_pos = position
-        self.speeds.append(pixel_speed)
-        avg_pixel_speed = np.mean(self.speeds)
-
-        result = {"pixel_speed": avg_pixel_speed}
-        if self.pixels_per_meter:
-            speed_ms = avg_pixel_speed / self.pixels_per_meter
-            result["speed_ms"] = speed_ms
-            result["speed_kmh"] = speed_ms * 3.6
-        else:
-            result["speed_ms"] = None
-            result["speed_kmh"] = None
-
-        return result
-
-
-# =============================================================================
 # 可视化
 # =============================================================================
 
@@ -423,6 +322,9 @@ def process_video(
         return {}
 
     fps = cap.get(cv2.CAP_PROP_FPS)
+    if not np.isfinite(fps) or fps <= 0:
+        cap.release()
+        raise ValueError("Video FPS is unavailable; provide a recording with valid FPS metadata")
     w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -468,14 +370,13 @@ def process_video(
             trajectory.append(smooth_pos)
 
             # 速度估计
-            speed_info = speed_est.update(smooth_pos)
+            speed_info = speed_est.update(smooth_pos, frame_idx)
             if speed_info.get("speed_kmh") is not None:
                 speed_samples.append(speed_info["speed_kmh"])
         else:
             # 仅预测（无检测）
             if kf.initialized:
-                pred_pos = kf.F @ kf.state
-                kf.state = pred_pos
+                kf.advance_without_measurement()
                 # 不添加到轨迹（仅内部预测）
             speed_info = {"pixel_speed": 0, "speed_kmh": None, "speed_ms": None}
 
@@ -543,6 +444,8 @@ def main():
     parser.add_argument("--max-frames", type=int, default=-1)
     parser.add_argument("--ppm", type=float, default=None,
                         help="像素/米标定值（pixels per meter），用于速度估计")
+    parser.add_argument("--class-id", type=int, default=32,
+                        help="Target class ID in this model (default: COCO sports ball 32)")
     parser.add_argument("--all-classes", action="store_true",
                         help="检测所有类别（而非仅球类）")
     args = parser.parse_args()
@@ -553,7 +456,7 @@ def main():
         sys.exit(1)
 
     # 目标类别
-    target_classes = None if args.all_classes else TARGET_CLASS_IDS
+    target_classes = None if args.all_classes else [args.class_id]
     detector = YOLOv8Detector(str(model_path), conf_threshold=args.conf,
                                target_classes=target_classes)
 
@@ -583,7 +486,7 @@ def main():
                 cx, cy = results[0]["center"]
                 pos = kf.update((cx, cy))
                 trajectory.append(pos)
-                speed_info = speed_est.update(pos)
+                speed_info = speed_est.update(pos, frame_idx)
             else:
                 speed_info = {}
 
