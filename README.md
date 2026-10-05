@@ -58,6 +58,22 @@ The threshold is an exploratory image-pixel value, not a calibrated physical spe
 
 Add `--db outputs/events.sqlite3 --session-id my-session` to persist those events in SQLite. The small event log stores sessions and ordered events, accepts an exact replay of the same event ID once, and rejects conflicting event IDs or session sequences. It can resume a session at the next stored sequence. Reprocessing a video intentionally creates new event IDs; use a new session ID for a new analysis run. This is a local log of **candidates**, not a verified Shot table or a backend API. A 200-frame software smoke run persisted five candidates and read them back in sequence.
 
+## Robot simulator
+
+`src/badminton_ai/robot.py` provides a deterministic software robot for tests and development. Commands have caller-supplied IDs and an immediate acceptance ACK; that ACK does **not** mean motion or launch completed. `advance(seconds)` advances simulated motion at a configured speed, consumes launch time, and exposes the current state, position, active command and pending queue depth. The pending queue is bounded; a normal stop clears active and pending commands. Emergency stop latches until an explicit simulation-only reset and rejects normal commands. Repeating an identical command ID returns its original ACK without executing it again; reuse with different contents is an error.
+
+```python
+from badminton_ai.robot import SimulatedRobot
+
+robot = SimulatedRobot(move_speed_m_s=2.0)
+robot.move_to(2.0, 0.0, command_id="move-1")
+robot.launch(command_id="launch-1")
+robot.advance(1.0)
+print(robot.get_state())
+```
+
+Use `PYTHONPATH=src python your_script.py` for the example from the repository root. The coordinates and timing are **simulation parameters**, not measured court motion or a safe motor controller. Command history is retained in memory for the lifetime of one simulator instance to protect duplicate IDs. No transport, hardware ACK timeout, retry policy or Raspberry Pi adapter is defined yet: there is no hardware protocol to test those behaviors against. Hardware integration remains a separate stage.
+
 ## Development order
 
 Use recorded video to develop and test inference, tracking, events, storage and a robot simulator before integrating hardware. Preserve the existing ONNX demo while extracting independent responsibilities into a small package. The bounded queue is covered by software failure and overflow tests, but its Pi performance remains unmeasured. The historical ~30 FPS Pi screenshot is a clue, not a current benchmark. The [audit](docs/repository_audit.md) records hardware and training-data gates.
