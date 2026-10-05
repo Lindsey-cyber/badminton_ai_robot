@@ -10,7 +10,8 @@ from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
-from badminton_ai.events import EventDispatcher, EventType, SessionEventEmitter, ShotCandidateDetector, Wrist
+from badminton_ai.events import (CandidateEventProcessor, EventDispatcher, EventType,
+                                 SessionEventEmitter, ShotCandidateDetector)
 from badminton_ai.storage import EventStore
 from benchmark import make_detector, report_path
 
@@ -59,28 +60,13 @@ def main() -> int:
                 dispatcher.subscribe(EventType.SHOT_CANDIDATE, store.append)
             emitter = SessionEventEmitter(session_id, dispatcher,
                                           store.next_sequence(session_id) if store else 0)
+            processor = CandidateEventProcessor(candidate_detector, emitter)
             for frame_index in range(args.max_frames):
                 ok, image = capture.read()
                 if not ok:
                     break
                 detections, _ = pose.inference(image)
-                if detections:
-                    # A simple single-player assumption; identity can switch.
-                    person = max(detections, key=lambda d: (d["bbox"][2] - d["bbox"][0]) *
-                                 (d["bbox"][3] - d["bbox"][1]))
-                    keypoints = person["keypoints"]
-                    wrists = (Wrist(*keypoints[9]), Wrist(*keypoints[10]))
-                else:
-                    wrists = (None, None)
-                candidate = candidate_detector.observe(frame_index, *wrists)
-                if candidate is not None:
-                    emitter.emit(EventType.SHOT_CANDIDATE, {
-                        "frame_index": candidate.frame_index,
-                        "video_time_s": candidate.video_time_s,
-                        "hand": candidate.hand,
-                        "wrist_speed_px_s": round(candidate.wrist_speed_px_s, 3),
-                        "threshold_px_s": args.threshold_px_s,
-                    })
+                processor.process(frame_index, detections)
                 processed += 1
         finally:
             capture.release()

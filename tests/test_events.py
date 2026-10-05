@@ -6,7 +6,8 @@ import unittest
 
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from badminton_ai.events import EventDispatcher, EventType, SessionEventEmitter, ShotCandidateDetector, Wrist
+from badminton_ai.events import (CandidateEventProcessor, EventDispatcher, EventType,
+                                 SessionEventEmitter, ShotCandidateDetector, Wrist)
 
 
 class EventTests(unittest.TestCase):
@@ -48,6 +49,24 @@ class EventTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             emitter.emit(EventType.SHOT_CANDIDATE, {"frame_index": 15})
         self.assertEqual(received[-1].sequence, 3)
+
+    def test_pose_candidates_are_emitted_with_source_frame_numbers(self):
+        received = []
+        dispatcher = EventDispatcher()
+        dispatcher.subscribe(EventType.SHOT_CANDIDATE, received.append)
+        processor = CandidateEventProcessor(
+            ShotCandidateDetector(10, 30), SessionEventEmitter("s", dispatcher))
+
+        def person(x):
+            keypoints = [(0, 0, 1)] * 17
+            keypoints[9] = (x, 0, 1)
+            return {"bbox": [0, 0, 100, 100], "keypoints": keypoints}
+
+        for frame, x in ((0, 0), (1, 1), (2, 5), (3, 6)):
+            processor.process(frame, [person(x)])
+        self.assertEqual(len(received), 1)
+        self.assertEqual(received[0].payload["frame_index"], 2)
+        self.assertEqual(received[0].sequence, 0)
 
 
 if __name__ == "__main__":

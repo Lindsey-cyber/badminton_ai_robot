@@ -1,0 +1,52 @@
+{
+  "recorded_at_utc": "2026-10-05T18:37:28.191574+00:00",
+  "session_id": "8a5e4fad-3f50-4e09-983b-7b6568272a2f",
+  "platform": "Linux-6.18.44-x86_64-with-glibc2.39",
+  "python": "3.12.14",
+  "runtime_versions": {
+    "numpy": "2.5.3",
+    "opencv-python-headless": "5.0.0.93",
+    "onnxruntime": "1.30.0"
+  },
+  "input": "assets/demo_inputs/badminton_sample.mp4",
+  "input_sha256": "fd538801b2d16ac414a20d331e0e3142857fc688b9c029a96ebd9f466d387eea",
+  "model": "src/pose/yolov8n-pose.onnx",
+  "model_sha256": "3d7232577f2990ed5f45171fba368092ea2c9e395d301e87d508620062aa6ddd",
+  "model_size_bytes": 13514572,
+  "db": "outputs/training_replay_events2.sqlite3",
+  "source_reported_fps": 24.0,
+  "threshold_px_s": 300.0,
+  "candidate_count": 5,
+  "metrics": {
+    "captured_frames": 200,
+    "processed_frames": 164,
+    "dropped_frames": 36,
+    "dropped_frame_rate": 0.18,
+    "max_queue_depth": 2,
+    "captured_fps": 24.112,
+    "processed_fps": 19.512,
+    "inference_ms": {
+      "p50": 50.139,
+      "p95": 72.969,
+      "mean": 50.966
+    },
+    "read_to_output_ms": {
+      "p50": 104.22,
+      "p95": 140.959,
+      "mean": 106.12
+    },
+    "process_cpu_percent_one_core_100": 412.24,
+    "process_rss_mb": {
+      "p50": 253.948,
+      "p95": 253.948,
+      "mean": 252.972
+    },
+    "wall_s": 8.405,
+    "camera_exposure_to_output_ms": null
+  },
+  "limitations": [
+    "Candidates are wrist-speed peaks, not confirmed racket-shuttle contacts.",
+    "One largest-person selection per frame can switch player identity.",
+    "Software drops exclude camera-driver drops; replay is not a live camera."
+  ]
+}

@@ -145,3 +145,32 @@ class ShotCandidateDetector:
         self._before_previous_speed = previous[1] if previous is not None else None
         self._previous_speed = (frame_index, speed, hand)
         return candidate
+
+
+class CandidateEventProcessor:
+    """Turn pose detections into unverified, ordered candidate events."""
+
+    def __init__(self, detector: ShotCandidateDetector,
+                 emitter: SessionEventEmitter) -> None:
+        self.detector = detector
+        self.emitter = emitter
+
+    def process(self, frame_index: int, detections: list[dict]) -> Event | None:
+        if detections:
+            # One visible player is assumed; the selected identity may switch.
+            person = max(detections, key=lambda d: (d["bbox"][2] - d["bbox"][0]) *
+                         (d["bbox"][3] - d["bbox"][1]))
+            keypoints = person["keypoints"]
+            wrists = (Wrist(*keypoints[9]), Wrist(*keypoints[10]))
+        else:
+            wrists = (None, None)
+        candidate = self.detector.observe(frame_index, *wrists)
+        if candidate is None:
+            return None
+        return self.emitter.emit(EventType.SHOT_CANDIDATE, {
+            "frame_index": candidate.frame_index,
+            "video_time_s": candidate.video_time_s,
+            "hand": candidate.hand,
+            "wrist_speed_px_s": round(candidate.wrist_speed_px_s, 3),
+            "threshold_px_s": self.detector.min_speed,
+        })

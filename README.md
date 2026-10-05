@@ -58,6 +58,16 @@ The threshold is an exploratory image-pixel value, not a calibrated physical spe
 
 Add `--db outputs/events.sqlite3 --session-id my-session` to persist those events in SQLite. The small event log stores sessions and ordered events, accepts an exact replay of the same event ID once, and rejects conflicting event IDs or session sequences. It can resume a session at the next stored sequence. Reprocessing a video intentionally creates new event IDs; use a new session ID for a new analysis run. This is a local log of **candidates**, not a verified Shot table or a backend API. A 200-frame software smoke run persisted five candidates and read them back in sequence.
 
+For a single bounded replay from recording through pose inference, candidate detection and SQLite, run:
+
+```bash
+python scripts/run_training.py --input assets/demo_inputs/badminton_sample.mp4 --frames 200 --queue-size 2 --threshold-px-s 300 --db outputs/events.sqlite3 --output outputs/training_replay.json
+```
+
+The report includes captured/processed FPS, p50/p95 read-to-output and inference time, dropped software frames, queue depth, CPU, RSS and the new session ID. Use a new session ID per replay. Event writes happen in the same output callback as the vision pipeline, so its read-to-output latency includes candidate processing and SQLite commits. If the API is down, replay still records events locally; the API can read them after restart. No robot action is issued from an unverified wrist peak.
+
+One [raw integrated cloud replay](outputs/benchmarks/cloud_training_replay.json) processed 164 of 200 recorded frames at 19.512 FPS with 36 software drops and read-to-output p50/p95 of 104.220/140.959 ms. It persisted five **unverified** candidates. A separate local run on the same video processed 146 frames and yielded two candidates; CPU load and timing affect which frames survive, so candidate counts are not deterministic under backpressure. These cloud measurements are not Pi results or shot accuracy, and the corresponding local SQLite databases are not published.
+
 ## Robot simulator
 
 `src/badminton_ai/robot.py` provides a deterministic software robot for tests and development. Commands have caller-supplied IDs and an immediate acceptance ACK; that ACK does **not** mean motion or launch completed. `advance(seconds)` advances simulated motion at a configured speed, consumes launch time, and exposes the current state, position, active command and pending queue depth. The pending queue is bounded; a normal stop clears active and pending commands. Emergency stop latches until an explicit simulation-only reset and rejects normal commands. Repeating an identical command ID returns its original ACK without executing it again; reuse with different contents is an error.
