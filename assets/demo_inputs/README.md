@@ -10,6 +10,6 @@ python scripts/demo_badminton_detection.py --input assets/demo_inputs/badminton_
 python scripts/video_batch_infer.py --input-dir assets/demo_inputs/ --mode pose
 ```
 
-For a generated visualization without a recording, run `python scripts/generate_pose_demo_video.py`. Its frames and labels are synthetic. `python scripts/stereo_distance_demo.py --mode simulate` is also a simulation, not a calibrated camera measurement.
+The historical `outputs/demo_videos/pose_demo.mp4` is a generated animation with synthetic frames and overlays, not a model demonstration. The generator was retired in favor of the checked-in recorded-video pipeline. `python scripts/stereo_distance_demo.py --mode simulate` is also a simulation, not a calibrated camera measurement.
 
 Recordings intended for training need explicit distribution rights and session-level train/validation/test splits. See the root README and audit before interpreting results.

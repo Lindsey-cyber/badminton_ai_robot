@@ -117,6 +117,8 @@ No labeled shuttlecock dataset exists in the repository; the generic COCO sports
 
 The old self-installing `setup_and_fix.py` and heuristic HTML report generator were removed. The former could download or overwrite model files as a side effect; the latter substituted assumed quantities, including shuttle speed, and its demo generated synthetic metrics. Install from the explicit requirements files and use the measured JSON tools above. Existing HTML artifacts remain as historical examples with [provenance notes](outputs/reports/README.md).
 
+The synthetic pose-video generator was also retired; its [historical video](outputs/demo_videos/README.md) remains labeled as an animation. The recorded-video path above is the current software demonstration.
+
 ## Development order
 
 Use recorded video to develop and test inference, tracking, events, storage and a robot simulator before integrating hardware. Preserve the existing ONNX demo while extracting independent responsibilities into a small package. The bounded queue is covered by software failure and overflow tests, but its Pi performance remains unmeasured. The historical ~30 FPS Pi screenshot is a clue, not a current benchmark. The [audit](docs/repository_audit.md) records hardware and training-data gates.
