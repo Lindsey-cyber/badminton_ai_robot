@@ -90,8 +90,8 @@ def batch_infer(
         except Exception as e:
             logger.warning(f"检测模型加载失败: {e}")
 
-    if pose_model is None and detect_model is None:
-        logger.warning("未加载任何模型，将仅分析视频基本信息")
+    if (mode in ("pose", "both") and pose_model is None) or (mode in ("detect", "both") and detect_model is None):
+        raise RuntimeError(f"未能加载 {mode} 模式所需的全部模型；不生成推理性能报告")
 
     # 批量处理
     results = []
@@ -141,6 +141,7 @@ def process_single_video(
     max_frames: int
 ) -> dict:
     """处理单个视频，返回统计结果"""
+    cap = None
     try:
         import cv2
     except ImportError:
@@ -174,24 +175,16 @@ def process_single_video(
             balls = []
 
             if pose_model and mode in ["pose", "both"]:
-                try:
-                    persons, _ = pose_model.inference(frame)
-                except Exception:
-                    pass
+                persons, _ = pose_model.inference(frame)
 
             if detect_model and mode in ["detect", "both"]:
-                try:
-                    balls, _ = detect_model.inference(frame)
-                except Exception:
-                    pass
+                balls, _ = detect_model.inference(frame)
 
             t1 = time.perf_counter()
             infer_times.append((t1 - t0) * 1000)
             num_persons_list.append(len(persons))
             num_balls_list.append(len(balls))
             frame_idx += 1
-
-        cap.release()
 
         result = {
             "file": str(video_path),
@@ -211,6 +204,9 @@ def process_single_video(
 
     except Exception as e:
         return {"file": str(video_path), "error": str(e)}
+    finally:
+        if cap is not None:
+            cap.release()
 
 
 def generate_summary_report(benchmark_path: str) -> str:
