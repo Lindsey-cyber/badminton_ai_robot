@@ -1,0 +1,37 @@
+{
+  "recorded_at_utc": "2026-10-06T19:31:02.863738+00:00",
+  "stage": "pretrained_coco_sports_ball_baseline",
+  "split": "val",
+  "ground_truth_original_class": 0,
+  "prediction_and_mapped_class": 32,
+  "dataset_manifest_sha256": "ea425c0b15fa2cd1ae97432ddcd9aae8abca18839ec542edf663974de306bdcd",
+  "dataset_sha256": "89f6f74fe229baef12d5ac532de4ff4add047bfbcd7373b37d2bdf891bf61071",
+  "source_group_to_split": {
+    "2": "train",
+    "1": "val",
+    "3": "test"
+  },
+  "weights_sha256": "f59b3d833e2ff32e194b5bb8e08d211dc7c5bdf144b90d2c8412c47ccfc83b36",
+  "weights_size_bytes": 6549796,
+  "python": "3.12.14",
+  "torch": "2.14.1+cpu",
+  "ultralytics": "8.4.174",
+  "device": "cpu",
+  "imgsz": 640,
+  "batch": 8,
+  "precision": 0.015685113939035218,
+  "recall": 0.043621399176954734,
+  "map50": 0.0008512024638419217,
+  "map50_95": 0.00016622119864590995,
+  "validation_speed_ms": {
+    "preprocess": 1.691808025515767,
+    "inference": 49.77987338847812,
+    "loss": 0.00013229629775694162,
+    "postprocess": 6.820976851028826
+  },
+  "limitations": [
+    "COCO sports ball is not a shuttlecock class.",
+    "Label source footage rights and fixed-size box quality are not verified.",
+    "Only one filename-derived video group is used for this split."
+  ]
+}
