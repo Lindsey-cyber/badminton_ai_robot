@@ -83,7 +83,9 @@ def main() -> None:
                                "width_px": round(target[2] - target[0], 2),
                                "height_px": round(target[3] - target[1], 2)})
                 counts["fn"] += 1
-                counts["fn_under_8px"] += max(target[2] - target[0], target[3] - target[1]) < 8
+                counts["fn_width_under_8px"] += target[2] - target[0] < 8
+                counts["fn_area_under_100px2"] += ((target[2] - target[0]) *
+                                                    (target[3] - target[1]) < 100)
         extras = [dict(box=[round(v, 2) for v in box], confidence=round(score, 4))
                   for i, (box, score) in enumerate(predicted) if i not in matched]
         counts["fp"] += len(extras)

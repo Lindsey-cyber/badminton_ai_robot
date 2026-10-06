@@ -1,0 +1,41 @@
+{
+  "recorded_at_utc": "2026-10-06T20:28:27.679389+00:00",
+  "experiment": "v1_warmup01",
+  "split": "val",
+  "dataset_sha256": "89f6f74fe229baef12d5ac532de4ff4add047bfbcd7373b37d2bdf891bf61071",
+  "dataset_manifest_sha256": "ea425c0b15fa2cd1ae97432ddcd9aae8abca18839ec542edf663974de306bdcd",
+  "source_group": "video_label_1",
+  "images": 1215,
+  "boxes": 1215,
+  "pretrained_sha256": "f59b3d833e2ff32e194b5bb8e08d211dc7c5bdf144b90d2c8412c47ccfc83b36",
+  "model_sha256": "c1620e0716f3158af9e432210aa9fd045397713b13eaa88405f4af330ac346a3",
+  "model_size_bytes": 6243434,
+  "args_yaml_sha256": "3edaeb6a11e09db3760020fe07e5c4ee212d0387d42f633d252ff3b2ad744e3d",
+  "results_csv_sha256": "a67ed079b1d920d439f31678351a23eb49f1ac939d225e70404be57dfae71ae3",
+  "python": "3.12.14",
+  "ultralytics": "8.4.174",
+  "torch": "2.14.1+cpu",
+  "device": "cpu",
+  "epoch_metrics": [
+    {
+      "epoch": 1.0,
+      "metrics/precision(B)": 0.21418,
+      "metrics/recall(B)": 0.13416,
+      "metrics/mAP50(B)": 0.05516,
+      "metrics/mAP50-95(B)": 0.00637
+    },
+    {
+      "epoch": 2.0,
+      "metrics/precision(B)": 0.16384,
+      "metrics/recall(B)": 0.1465,
+      "metrics/mAP50(B)": 0.05382,
+      "metrics/mAP50-95(B)": 0.00658
+    }
+  ],
+  "selection": "Ultralytics best.pt; fitness based on validation mAP50-95; two epochs",
+  "limitations": [
+    "One held-out video group, professional footage rights unverified",
+    "Fixed-size tiny annotation boxes require human audit",
+    "No Raspberry Pi measurement"
+  ]
+}

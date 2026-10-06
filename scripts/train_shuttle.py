@@ -74,7 +74,9 @@ def main() -> int:
         raise RuntimeError(f"Training finished without best weights: {best}")
     trained = YOLO(str(best))
     metrics = trained.val(data=str(yaml_path), split="val", imgsz=args.imgsz,
-                          batch=args.batch, workers=args.workers, device=args.device)
+                          batch=args.batch, workers=args.workers, device=args.device,
+                          plots=False, project=str((best.parent.parent / "evaluation").resolve()),
+                          name="val")
     exported = Path(trained.export(format="onnx", imgsz=args.imgsz,
                                    dynamic=False, nms=False, simplify=False))
     check_onnx_file(exported, args.imgsz)
