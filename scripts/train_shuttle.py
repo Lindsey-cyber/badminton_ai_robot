@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fine-tune YOLOv8n on real labeled shuttlecocks, evaluate, export ONNX."""
+"""Fine-tune YOLOv8n; select settings on validation, keeping test untouched."""
 
 import argparse
 from datetime import datetime, timezone
@@ -32,11 +32,19 @@ def main() -> int:
     parser.add_argument("--imgsz", type=int, default=640,
                         help="Fixed export size; the existing ONNX detector uses 640")
     parser.add_argument("--batch", type=int, default=8)
+    parser.add_argument("--workers", type=int, default=0)
     parser.add_argument("--device", default="cpu", help="Ultralytics device, e.g. cpu or 0")
     parser.add_argument("--runs-dir", type=Path, default=ROOT / "outputs/training")
+    parser.add_argument("--name", default="shuttle_yolov8n")
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--mosaic", type=float, default=0.0)
+    parser.add_argument("--scale", type=float, default=0.1)
+    parser.add_argument("--fliplr", type=float, default=0.5)
     args = parser.parse_args()
-    if args.epochs < 1 or args.batch < 1 or args.imgsz != 640:
-        parser.error("epochs and batch must be positive; current ONNX detector requires imgsz=640")
+    if (args.epochs < 1 or args.batch < 1 or args.workers < 0 or args.imgsz != 640 or args.seed < 0 or
+            not 0 <= args.mosaic <= 1 or not 0 <= args.scale <= 1 or
+            not 0 <= args.fliplr <= 1):
+        parser.error("Invalid epochs, batch, seed or augmentation; current ONNX detector requires imgsz=640")
 
     try:
         splits = validate_dataset(args.dataset)
@@ -53,33 +61,44 @@ def main() -> int:
 
     model = YOLO(args.weights)
     model.train(data=str(yaml_path), epochs=args.epochs, imgsz=args.imgsz,
-                batch=args.batch, device=args.device, project=str(args.runs_dir.resolve()),
-                name="shuttle_yolov8n", seed=42, deterministic=True,
-                mosaic=0.0, scale=0.1, fliplr=0.5, flipud=0.0)
+                batch=args.batch, workers=args.workers, device=args.device,
+                project=str(args.runs_dir.resolve()),
+                name=args.name, seed=args.seed, deterministic=True,
+                mosaic=args.mosaic, scale=args.scale, fliplr=args.fliplr, flipud=0.0)
     best = Path(model.trainer.best)
     if not best.is_file():
         raise RuntimeError(f"Training finished without best weights: {best}")
     trained = YOLO(str(best))
-    metrics = trained.val(data=str(yaml_path), split="test", imgsz=args.imgsz,
-                          device=args.device)
+    metrics = trained.val(data=str(yaml_path), split="val", imgsz=args.imgsz,
+                          batch=args.batch, workers=args.workers, device=args.device)
     exported = Path(trained.export(format="onnx", imgsz=args.imgsz,
                                    dynamic=False, nms=False, simplify=False))
     check_onnx_file(exported, args.imgsz)
 
+    manifest = args.dataset / "manifest.json"
+    manifest_data = json.loads(manifest.read_text(encoding="utf-8")) if manifest.is_file() else {}
+    train_args = best.parent.parent / "args.yaml"
     report = {
         "recorded_at_utc": datetime.now(timezone.utc).isoformat(),
         "dataset_yaml": str(yaml_path),
+        "dataset_manifest_sha256": file_sha256(manifest) if manifest.is_file() else None,
+        "dataset_sha256": manifest_data.get("dataset_sha256"),
         "splits": {name: vars(counts) for name, counts in splits.items()},
         "starting_weights": args.weights,
+        "starting_weights_sha256": (file_sha256(Path(args.weights))
+                                    if Path(args.weights).is_file() else None),
         "epochs": args.epochs, "imgsz": args.imgsz, "batch": args.batch,
-        "device": args.device, "seed": 42,
-        "augmentations": {"mosaic": 0.0, "scale": 0.1, "fliplr": 0.5, "flipud": 0.0},
+        "workers": args.workers, "run_name": args.name,
+        "device": args.device, "seed": args.seed,
+        "augmentations": {"mosaic": args.mosaic, "scale": args.scale,
+                          "fliplr": args.fliplr, "flipud": 0.0},
         "ultralytics": ultralytics.__version__, "torch": torch.__version__,
-        "test_precision": float(metrics.box.mp),
-        "test_recall": float(metrics.box.mr),
-        "test_map50": float(metrics.box.map50),
-        "test_map50_95": float(metrics.box.map),
+        "validation_precision": float(metrics.box.mp),
+        "validation_recall": float(metrics.box.mr),
+        "validation_map50": float(metrics.box.map50),
+        "validation_map50_95": float(metrics.box.map),
         "best_pt": str(best.resolve()), "best_pt_sha256": file_sha256(best),
+        "train_args_yaml_sha256": file_sha256(train_args) if train_args.is_file() else None,
         "onnx": str(exported.resolve()), "onnx_sha256": file_sha256(exported),
         "onnx_size_bytes": exported.stat().st_size,
         "inference_latency_ms": None,
@@ -87,7 +106,7 @@ def main() -> int:
     }
     destination = best.parent.parent / "training_report.json"
     destination.write_text(json.dumps(report, indent=2, allow_nan=False) + "\n", encoding="utf-8")
-    print(f"Saved held-out test metrics and model hashes: {destination}")
+    print(f"Saved validation metrics and model hashes: {destination}; held-out test untouched")
     return 0
 
 
