@@ -1,6 +1,7 @@
 # Public shuttlecock data audit (2026-10-06)
 
-The repository has **not** fine-tuned a shuttlecock model. Public data was inspected
+The initial local fine-tuning experiment is documented in
+[shuttle_experiments.md](shuttle_experiments.md). Public data was inspected
 outside the repository; no third-party images, labels or model weights are committed.
 
 | Source | Annotation and acquisition | Rights / decision |
