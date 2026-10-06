@@ -37,14 +37,17 @@ def main() -> int:
     parser.add_argument("--runs-dir", type=Path, default=ROOT / "outputs/training")
     parser.add_argument("--name", default="shuttle_yolov8n")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--warmup-epochs", type=float, default=3.0,
+                        help="Keep below total epochs for short CPU experiments")
     parser.add_argument("--mosaic", type=float, default=0.0)
     parser.add_argument("--scale", type=float, default=0.1)
     parser.add_argument("--fliplr", type=float, default=0.5)
     args = parser.parse_args()
     if (args.epochs < 1 or args.batch < 1 or args.workers < 0 or args.imgsz != 640 or args.seed < 0 or
+            not 0 <= args.warmup_epochs < args.epochs or
             not 0 <= args.mosaic <= 1 or not 0 <= args.scale <= 1 or
             not 0 <= args.fliplr <= 1):
-        parser.error("Invalid epochs, batch, seed or augmentation; current ONNX detector requires imgsz=640")
+        parser.error("Invalid epochs, warmup, batch, seed or augmentation; current ONNX detector requires imgsz=640")
 
     try:
         splits = validate_dataset(args.dataset)
@@ -64,6 +67,7 @@ def main() -> int:
                 batch=args.batch, workers=args.workers, device=args.device,
                 project=str(args.runs_dir.resolve()),
                 name=args.name, seed=args.seed, deterministic=True,
+                warmup_epochs=args.warmup_epochs,
                 mosaic=args.mosaic, scale=args.scale, fliplr=args.fliplr, flipud=0.0)
     best = Path(model.trainer.best)
     if not best.is_file():
@@ -90,6 +94,7 @@ def main() -> int:
         "epochs": args.epochs, "imgsz": args.imgsz, "batch": args.batch,
         "workers": args.workers, "run_name": args.name,
         "device": args.device, "seed": args.seed,
+        "warmup_epochs": args.warmup_epochs,
         "augmentations": {"mosaic": args.mosaic, "scale": args.scale,
                           "fliplr": args.fliplr, "flipud": 0.0},
         "ultralytics": ultralytics.__version__, "torch": torch.__version__,
