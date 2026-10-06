@@ -6,7 +6,7 @@ To try a different recording, pass its path to the existing demos:
 
 ```bash
 python scripts/demo_pose_inference.py --input assets/demo_inputs/badminton_sample.mp4
-python scripts/demo_badminton_detection.py --input assets/demo_inputs/badminton_sample.mp4
+python scripts/demo_badminton_detection.py --input assets/demo_inputs/badminton_sample.mp4 --model /path/to/real/yolov8n.onnx
 python scripts/video_batch_infer.py --input-dir assets/demo_inputs/ --mode pose
 ```
 

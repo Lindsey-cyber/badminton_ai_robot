@@ -12,8 +12,8 @@ Features:
   5. Write an annotated video.
 
 Usage:
-    python demo_badminton_detection.py --input assets/demo_inputs/badminton_sample.mp4
-    python demo_badminton_detection.py --camera 0
+    python demo_badminton_detection.py --input assets/demo_inputs/badminton_sample.mp4 --model yolov8n.onnx
+    python demo_badminton_detection.py --camera 0 --model yolov8n.onnx
 
 Limitations:
   - The generic pretrained model's COCO class 32 is sports ball, not shuttlecock.
@@ -26,7 +26,6 @@ import json
 import logging
 import sys
 import time
-import urllib.request
 from collections import deque
 from pathlib import Path
 
@@ -64,9 +63,6 @@ DEFAULT_MODEL_PATH = MODEL_DIR / "yolov8n.onnx"
 OUTPUT_DIR = PROJECT_ROOT / "outputs" / "demo_videos"
 BENCHMARK_DIR = PROJECT_ROOT / "outputs" / "benchmarks"
 
-# Generic YOLOv8n ONNX download URL
-MODEL_URL = "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolov8n.onnx"
-
 # The generic COCO model uses class 32 for sports ball. Its class 0 is person.
 # A future shuttlecock-specific model may use class 0, but that must be
 # selected explicitly after validating its class mapping.
@@ -83,34 +79,6 @@ TRAJECTORY_COLORS = [
 ]
 
 MAX_TRAJECTORY_LEN = 30  # Keep at most 30 tracked positions.
-
-
-# =============================================================================
-# Model download
-# =============================================================================
-
-def download_model(model_path: Path) -> bool:
-    if model_path.exists():
-        logger.info(f"Model already exists: {model_path}")
-        return True
-
-    model_path.parent.mkdir(parents=True, exist_ok=True)
-    logger.info(f"Downloading generic YOLOv8n model: {MODEL_URL}")
-
-    try:
-        def reporthook(block_num, block_size, total_size):
-            downloaded = block_num * block_size
-            if total_size > 0:
-                pct = min(downloaded * 100 / total_size, 100)
-                print(f"\rDownload progress: {pct:.1f}%", end="", flush=True)
-
-        urllib.request.urlretrieve(MODEL_URL, str(model_path), reporthook)
-        print()
-        logger.info("Model download complete")
-        return True
-    except Exception as e:
-        logger.error(f"Download failed: {e}")
-        return False
 
 
 # =============================================================================
@@ -483,10 +451,10 @@ def main():
                         help="Detect every class rather than only COCO sports ball")
     args = parser.parse_args()
 
-    # Download model if needed.
     model_path = Path(args.model)
-    if not download_model(model_path):
-        sys.exit(1)
+    if not model_path.is_file():
+        parser.error(f"Model not found: {model_path}. Export a real YOLOv8n ONNX model first, "
+                     "or pass --model /path/to/exported.onnx")
 
     # Target classes.
     target_classes = None if args.all_classes else [args.class_id]
@@ -545,7 +513,7 @@ def main():
         logger.info(f"Benchmark saved: {bench_path}")
     else:
         logger.info("Provide --input <video path> or --camera <device ID>")
-        logger.info("Example: python demo_badminton_detection.py --input video.mp4")
+        logger.info("Example: python demo_badminton_detection.py --input video.mp4 --model yolov8n.onnx")
         logger.info("")
         logger.info("TrackNetV3 (a separate shuttlecock tracker):")
         logger.info("  git clone https://github.com/qaz812345/TrackNetV3")

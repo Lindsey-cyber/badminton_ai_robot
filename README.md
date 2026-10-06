@@ -8,11 +8,11 @@ Use Python 3.10+ and install `pip install -r requirements.txt` in a virtual envi
 
 ```bash
 python scripts/demo_pose_inference.py --input assets/demo_inputs/badminton_sample.mp4 --max-frames 100
-python scripts/demo_badminton_detection.py --input assets/demo_inputs/badminton_sample.mp4
+python scripts/demo_badminton_detection.py --input assets/demo_inputs/badminton_sample.mp4 --model /path/to/yolov8n.onnx
 python scripts/stereo_distance_demo.py --mode simulate
 ```
 
-The ball demo may download a generic YOLOv8n model. It searches the COCO `sports ball` class; its detections are not validated shuttlecock detections. The pose demo uses the checked-in `src/pose/yolov8n-pose.onnx` model. Historical HTML reports in `outputs/reports/` contain heuristic and synthetic quantities; they are not measured performance or model evaluation.
+The ball demo needs an ONNX model supplied through `--model`. It searches the COCO `sports ball` class; its detections are not validated shuttlecock detections. The pose demo uses the checked-in `src/pose/yolov8n-pose.onnx` model. Historical HTML reports in `outputs/reports/` contain heuristic and synthetic quantities; they are not measured performance or model evaluation.
 
 The ball demo defaults to COCO class 32. Class 0 in that model is **person**. If you supply a separately trained one-class shuttlecock model, pass `--model path/to/model.onnx --class-id 0` after verifying the model's output class mapping. Tracking and apparent speed calculations live in `src/badminton_ai/tracking.py`. A court-width pixel scale cannot recover the 3D speed of a flying shuttle; its converted speed is an approximation, not a measured physical speed.
 
@@ -28,7 +28,7 @@ python scripts/benchmark.py --input assets/demo_inputs/badminton_sample.mp4 --mo
 
 The ball command needs a model already present at the specified path. The benchmark never silently downloads one. Reports include source reported FPS, measured processing throughput, p50/p95 ONNX `session.run` time, p50/p95 inference including preprocessing and postprocessing, p50/p95 read-start-to-result time, process CPU and RSS. Warmup and model loading are excluded. This sequential baseline has no bounded queue or driver frame counter, so dropped-frame rate and true exposure-to-result latency are `null`, **not zero**. File throughput is not camera FPS. Reports are environment-specific and no Raspberry Pi numbers are claimed here.
 
-The separate `demo_badminton_detection.py` can download a generic COCO ONNX model when absent. It selects COCO class 32 by default, clips boxes to the image and applies per-class IoU suppression to raw YOLO predictions (`--iou` defaults to 0.45). This fixes overlapping duplicate predictions, but there is no labeled shuttlecock evaluation and no checked-in ball model to benchmark the change here. For a future one-class exported model, pass its path and `--class-id 0` explicitly.
+The separate `demo_badminton_detection.py` requires an existing ONNX model via `--model`. Its old automatic download URL returned 404 and was removed. It selects COCO class 32 by default, clips boxes to the image and applies per-class IoU suppression to raw YOLO predictions (`--iou` defaults to 0.45). This fixes overlapping duplicate predictions, but there is no labeled shuttlecock evaluation and no checked-in ball model to benchmark the change here. For a future one-class exported model, pass its path and `--class-id 0` explicitly. See the [dataset guide](docs/shuttle_dataset.md) for an official pretrained export command.
 
 ## Bounded pipeline replay
 
