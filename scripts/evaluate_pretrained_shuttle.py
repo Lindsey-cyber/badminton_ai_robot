@@ -30,6 +30,31 @@ def digest(path: Path) -> str:
     return h.hexdigest()
 
 
+def create_mapped_evaluation(dataset: Path, workspace: Path, split: str,
+                             names: dict[int, str]) -> Path:
+    """Hard-link images so Ultralytics looks up the mapped labels, not source labels."""
+    workspace.mkdir(parents=True, exist_ok=True)
+    images = workspace / "images" / split
+    images.mkdir(parents=True)
+    labels = workspace / "labels" / split
+    labels.mkdir(parents=True)
+    for original in sorted((dataset / "images" / split).glob("*.jpg")):
+        try:
+            os.link(original, images / original.name)
+        except OSError:
+            shutil.copy2(original, images / original.name)
+    for original in sorted((dataset / "labels" / split).glob("*.txt")):
+        rows = original.read_text(encoding="utf-8").splitlines()
+        (labels / original.name).write_text("".join("32 " + row.split(maxsplit=1)[1] + "\n"
+                                                    for row in rows), encoding="utf-8")
+    yaml = workspace / "data.yaml"
+    yaml.write_text(f"path: {json.dumps(str(workspace))}\n"
+                    "train: images/train\nval: images/val\ntest: images/test\n"
+                    "names: " + json.dumps([names[i] for i in range(80)]) + "\n",
+                    encoding="utf-8")
+    return yaml
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset", required=True, type=Path)
@@ -56,25 +81,7 @@ def main() -> None:
     if len(model.names) != 80 or model.names[32] != "sports ball":
         parser.error("Weights must use the 80-class COCO layout with sports ball at class 32")
 
-    workspace.mkdir(parents=True, exist_ok=True)
-    images = workspace / "images" / args.split
-    images.mkdir(parents=True)
-    labels = workspace / "labels" / args.split
-    labels.mkdir(parents=True)
-    for original in sorted((dataset / "images" / args.split).glob("*.jpg")):
-        try:
-            os.link(original, images / original.name)
-        except OSError:
-            shutil.copy2(original, images / original.name)
-    for original in sorted((dataset / "labels" / args.split).glob("*.txt")):
-        rows = original.read_text(encoding="utf-8").splitlines()
-        (labels / original.name).write_text("".join("32 " + row.split(maxsplit=1)[1] + "\n"
-                                                    for row in rows), encoding="utf-8")
-    yaml = workspace / "data.yaml"
-    yaml.write_text(f"path: {json.dumps(str(workspace))}\n"
-                    "train: images/train\nval: images/val\ntest: images/test\n"
-                    "names: " + json.dumps([model.names[i] for i in range(80)]) + "\n",
-                    encoding="utf-8")
+    yaml = create_mapped_evaluation(dataset, workspace, args.split, model.names)
 
     metrics = model.val(data=str(yaml), split=args.split, imgsz=640,
                         batch=args.batch, device="cpu", workers=0,
