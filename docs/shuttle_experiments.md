@@ -44,3 +44,19 @@ model may be evaluated on video group 3 once, after settings are frozen. The
 existing trainer now reports validation scores rather than evaluating test
 after each training attempt. Save each run's `args.yaml`, `results.csv`,
 weights hash, source dataset hash and ONNX hash before comparing models.
+
+The first constrained CPU run uses YOLOv8n COCO initialization, 640px input,
+seed 42, batch 8, two epochs, 0.1 warmup epoch, mosaic disabled, scale 0.1,
+horizontal flip 0.5, and no vertical flip. This short run is an initial
+experiment, not a converged training recipe. Its exact Ultralytics arguments
+are saved in the run's `args.yaml`. The grouped dataset remains outside Git,
+as do its weights and broadcast frames.
+
+`scripts/analyze_shuttle_errors.py` creates validation false-positive and
+false-negative cases at a fixed 0.25 confidence and 0.5 IoU operating point.
+Those counts are for deciding a V2 change, not a replacement for Ultralytics
+precision/recall/mAP. Inspect actual frames for blur, occlusion and lighting;
+the script cannot infer those visual causes. `scripts/evaluate_shuttle_model.py`
+records a frozen model's validation or held-out test metrics and hashes.
+`scripts/check_onnx_parity.py` compares raw .pt and ONNX predictions on the
+same tensors produced by the existing detector preprocessing.
