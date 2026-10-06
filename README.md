@@ -113,6 +113,8 @@ Install `requirements-dev.txt` and run `python -m pytest tests -q`. GitHub Actio
 
 ## Shuttlecock training data
 
+An [audit of public shuttlecock data](docs/public_data_audit.md) identifies a downloadable 8,053-image export and demonstrates how to re-split its three source videos without neighboring-frame leakage. Its professional broadcast footage rights remain unresolved; no model has been trained or published from that data. [Resume evidence](docs/RESUME_EVIDENCE.md) records only measured software benchmarks and explicitly excludes unmeasured ML and Raspberry Pi results.
+
 No labeled shuttlecock dataset exists in the repository; the generic COCO sports-ball model is not fine-tuned. The [dataset guide](docs/shuttle_dataset.md) defines the one-class train/val/test layout and the validation command that generates an actual Ultralytics `data.yaml` once real labels are supplied. Exact duplicate images and malformed boxes are rejected, but nearby frames from a single video must be grouped by recording before splitting. No accuracy metric has been measured.
 
 `scripts/train_shuttle.py` is the runnable fine-tuning, held-out evaluation and fixed-shape ONNX export entry point once labeled data is available. It writes a report with measured test metrics and model hashes only after a real training run. Use `--class-id 0` with the exported one-class model in the ball demo and benchmarks; the generic COCO model uses class 32. Export compatibility is checked before writing the report. Target-device inference latency still requires a separate benchmark; no trained weights or training result is claimed here.

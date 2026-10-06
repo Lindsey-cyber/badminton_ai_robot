@@ -1,6 +1,6 @@
 # Shuttlecock detection dataset
 
-There is **no labeled shuttlecock image dataset** in this repository. The three JSON files in `data/annotations/` are templates, and the demo videos are not ground truth. The generic YOLOv8n model has not been fine-tuned here.
+There is **no labeled shuttlecock image dataset** in this repository. The three JSON files in `data/annotations/` are templates, and the demo videos are not ground truth. The generic YOLOv8n model has not been fine-tuned here. See the [public data audit](public_data_audit.md) for external sources, the local source-video regrouping, label-quality findings and unresolved broadcast/footage rights. Do not train for a published result on an uncleared source.
 
 Organize newly labeled images and one-class YOLO boxes as follows, using different recorded sessions for each split:
 
