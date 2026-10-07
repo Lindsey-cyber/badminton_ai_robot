@@ -266,3 +266,51 @@ class VideoFileSource:
     def close(self) -> None:
         self._closed.set()
         self._cap.release()
+
+
+class OpenCVCameraSource:
+    """Bounded OpenCV camera capture; a failed read aborts the benchmark."""
+
+    def __init__(self, index: int, max_frames: int, width: int | None = None,
+                 height: int | None = None, requested_fps: float | None = None) -> None:
+        try:
+            import cv2
+        except ImportError as exc:
+            raise RuntimeError("OpenCV is required for camera capture") from exc
+        if index < 0 or max_frames < 1:
+            raise ValueError("Camera index must be nonnegative and max_frames positive")
+        if ((width is not None and width < 1) or
+                (height is not None and height < 1)):
+            raise ValueError("Camera dimensions must be positive")
+        if requested_fps is not None and not 0 < requested_fps < float("inf"):
+            raise ValueError("Requested camera FPS must be positive and finite")
+        self._cap = cv2.VideoCapture(index)
+        if not self._cap.isOpened():
+            self._cap.release()
+            raise RuntimeError(f"Cannot open camera: {index}")
+        if width is not None:
+            self._cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+        if height is not None:
+            self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+        if requested_fps is not None:
+            self._cap.set(cv2.CAP_PROP_FPS, requested_fps)
+        self.reported_width = self._cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+        self.reported_height = self._cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+        self.fps = self._cap.get(cv2.CAP_PROP_FPS) or None
+        self.max_frames = max_frames
+        self._frames_read = 0
+        self._closed = False
+
+    def read(self) -> tuple[bool, Any]:
+        if self._closed or self._frames_read >= self.max_frames:
+            return False, None
+        ok, frame = self._cap.read()
+        if not ok:
+            raise RuntimeError("Camera read failed during warmup or the measured run")
+        self._frames_read += 1
+        return True, frame
+
+    def close(self) -> None:
+        if not self._closed:
+            self._closed = True
+            self._cap.release()

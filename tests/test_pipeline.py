@@ -1,13 +1,17 @@
 """Concurrency and failure tests without camera, model or recorded video."""
 
 from pathlib import Path
+import json
 import sys
+import tempfile
 import time
+import types
 import unittest
+from unittest.mock import patch
 
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from badminton_ai.pipeline import VisionPipeline
+from badminton_ai.pipeline import OpenCVCameraSource, VisionPipeline
 
 
 class BurstSource:
@@ -31,6 +35,106 @@ class BurstSource:
 
 
 class PipelineTests(unittest.TestCase):
+    def test_camera_source_reports_negotiated_settings_and_fails_on_read_error(self):
+        class Capture:
+            def __init__(self, _index):
+                self.read_count = 0
+                self.released = False
+                self.requested = {}
+
+            def isOpened(self):
+                return True
+
+            def set(self, key, value):
+                self.requested[key] = value
+
+            def get(self, key):
+                return {1: 640, 2: 480, 3: 24}[key]
+
+            def read(self):
+                self.read_count += 1
+                return True, self.read_count
+
+            def release(self):
+                self.released = True
+
+        capture = Capture(0)
+        fake_cv2 = types.SimpleNamespace(VideoCapture=lambda _: capture,
+                                         CAP_PROP_FRAME_WIDTH=1,
+                                         CAP_PROP_FRAME_HEIGHT=2, CAP_PROP_FPS=3)
+        with patch.dict(sys.modules, {"cv2": fake_cv2}):
+            source = OpenCVCameraSource(0, max_frames=2, width=1280, height=720,
+                                        requested_fps=30)
+            self.assertEqual((source.reported_width, source.reported_height, source.fps),
+                             (640, 480, 24))
+            self.assertEqual(capture.requested, {1: 1280, 2: 720, 3: 30})
+            self.assertEqual(source.read(), (True, 1))
+            self.assertEqual(source.read(), (True, 2))
+            self.assertEqual(source.read(), (False, None))
+            source.close()
+            self.assertTrue(capture.released)
+
+            capture = Capture(0)
+            capture.read = lambda: (False, None)
+            source = OpenCVCameraSource(0, max_frames=1)
+            with self.assertRaisesRegex(RuntimeError, "Camera read failed"):
+                source.read()
+            source.close()
+
+    def test_camera_benchmark_excludes_warmup_and_writes_real_report_fields(self):
+        root = Path(__file__).resolve().parents[1]
+        sys.path.insert(0, str(root / "scripts"))
+        from scripts import benchmark_pipeline
+
+        class Capture:
+            def __init__(self, _index):
+                self.read_count = 0
+
+            def isOpened(self):
+                return True
+
+            def set(self, _key, _value):
+                return True
+
+            def get(self, key):
+                return {1: 640, 2: 480, 3: 24}[key]
+
+            def read(self):
+                self.read_count += 1
+                return True, self.read_count
+
+            def release(self):
+                pass
+
+        capture = Capture(0)
+        fake_cv2 = types.SimpleNamespace(VideoCapture=lambda _: capture,
+                                         CAP_PROP_FRAME_WIDTH=1,
+                                         CAP_PROP_FRAME_HEIGHT=2, CAP_PROP_FPS=3)
+        class Detector:
+            session = types.SimpleNamespace(get_providers=lambda: ["fake-provider"])
+
+            def inference(self, frame):
+                return frame
+
+        with tempfile.TemporaryDirectory() as directory:
+            model = Path(directory) / "model.onnx"
+            model.write_bytes(b"test-only")
+            output = Path(directory) / "report.json"
+            argv = ["benchmark_pipeline.py", "--camera", "0", "--model", str(model),
+                    "--frames", "3", "--warmup", "1", "--width", "1280",
+                    "--output", str(output)]
+            with patch.dict(sys.modules, {"cv2": fake_cv2}), \
+                    patch.object(sys, "argv", argv), \
+                    patch.object(benchmark_pipeline, "make_detector", return_value=Detector()):
+                self.assertEqual(benchmark_pipeline.main(), 0)
+            report = json.loads(output.read_text(encoding="utf-8"))
+            self.assertEqual(capture.read_count, 4)
+            self.assertEqual(report["captured_frames"], 3)
+            self.assertEqual(report["warmup_frames"], 1)
+            self.assertEqual(report["input_kind"], "camera")
+            self.assertIsNone(report["input_sha256"])
+            self.assertEqual(report["camera_settings"]["reported_width"], 640)
+
     def test_slow_inference_drops_old_frames_and_keeps_latest(self):
         source = BurstSource(100)
         seen = []
