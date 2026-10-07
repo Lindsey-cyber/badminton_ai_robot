@@ -1,0 +1,8 @@
+__pycache__/
+.pytest_cache/
+.venv/
+# Keep research weights and exports local until their data rights are resolved.
+*.pt
+*.onnx
+outputs/training/
+outputs/benchmarks/*_local.json
