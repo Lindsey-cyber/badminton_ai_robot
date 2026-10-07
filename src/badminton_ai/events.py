@@ -15,6 +15,8 @@ from uuid import uuid4
 class EventType(str, Enum):
     SHOT_CANDIDATE = "ShotCandidate"
     PERFORMANCE_METRIC = "PerformanceMetric"
+    ROBOT_COMMAND_ISSUED = "RobotCommandIssued"
+    ROBOT_STATE_CHANGED = "RobotStateChanged"
 
 
 @dataclass(frozen=True)

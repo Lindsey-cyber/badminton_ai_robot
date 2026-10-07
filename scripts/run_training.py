@@ -16,6 +16,8 @@ from badminton_ai.events import (CandidateEventProcessor, EventDispatcher, Event
                                  SessionEventEmitter, ShotCandidateDetector)
 from badminton_ai.pipeline import VideoFileSource, VisionPipeline
 from badminton_ai.storage import EventStore
+from badminton_ai.robot import SimulatedRobot
+from badminton_ai.training_policy import SimulatedTrainingPolicy
 from benchmark import file_sha256, make_detector, report_path, runtime_versions
 
 
@@ -27,6 +29,8 @@ def main() -> int:
     parser.add_argument("--queue-size", type=int, default=2)
     parser.add_argument("--threshold-px-s", type=float, required=True)
     parser.add_argument("--session-id", default=None)
+    parser.add_argument("--simulate-robot", action="store_true",
+                        help="Run an unverified candidate-to-command rule against SimulatedRobot only")
     parser.add_argument("--db", type=Path, default=ROOT / "outputs/events.sqlite3")
     parser.add_argument("--output", type=Path, default=ROOT / "outputs/training_replay.json")
     args = parser.parse_args()
@@ -46,8 +50,16 @@ def main() -> int:
                 dispatcher = EventDispatcher()
                 dispatcher.subscribe(EventType.SHOT_CANDIDATE, store.append)
                 dispatcher.subscribe(EventType.PERFORMANCE_METRIC, store.append)
+                if args.simulate_robot:
+                    dispatcher.subscribe(EventType.ROBOT_COMMAND_ISSUED, store.append)
+                    dispatcher.subscribe(EventType.ROBOT_STATE_CHANGED, store.append)
                 emitter = SessionEventEmitter(session_id, dispatcher)
                 processor = CandidateEventProcessor(candidate_detector, emitter)
+                policy = (SimulatedTrainingPolicy(SimulatedRobot(move_speed_m_s=4.0),
+                                                  emitter, source.fps)
+                          if args.simulate_robot else None)
+                if policy is not None:
+                    dispatcher.subscribe(EventType.SHOT_CANDIDATE, policy.on_candidate)
                 metrics_count = 0
 
                 def publish_metrics(snapshot: dict[str, float | int]) -> None:
@@ -55,13 +67,20 @@ def main() -> int:
                     emitter.emit(EventType.PERFORMANCE_METRIC, snapshot)
                     metrics_count += 1
 
+                def on_result(frame, detections) -> None:
+                    if policy is not None:
+                        policy.on_frame(frame.sequence)
+                    processor.process(frame.sequence, detections)
+
                 pipeline = VisionPipeline(
                     source, lambda image: pose.inference(image)[0],
-                    on_result=lambda frame, detections: processor.process(frame.sequence, detections),
+                    on_result=on_result,
                     queue_size=args.queue_size,
                     on_metrics=publish_metrics,
                 )
                 metrics = pipeline.run()
+                if policy is not None:
+                    policy.finish()
                 candidate_count = processor.candidate_count
         finally:
             source.close()
@@ -84,11 +103,17 @@ def main() -> int:
         "threshold_px_s": args.threshold_px_s,
         "candidate_count": candidate_count,
         "metrics_snapshot_count": metrics_count,
+        "simulated_robot": ({
+            "command_count": policy.command_count,
+            "final_state": policy.robot.get_state().state.value,
+            "final_position_m": list(policy.robot.get_state().position_m),
+        } if policy is not None else None),
         "metrics": metrics,
         "limitations": [
             "Candidates are wrist-speed peaks, not confirmed racket-shuttle contacts.",
             "One largest-person selection per frame can switch player identity.",
             "Software drops exclude camera-driver drops; replay is not a live camera.",
+            "The optional rule controls only SimulatedRobot; no hardware safety is implied.",
         ],
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
