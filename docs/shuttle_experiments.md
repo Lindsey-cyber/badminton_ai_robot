@@ -157,3 +157,29 @@ Only three filename-derived source groups exist, and the boxes are tiny and
 nearly fixed-size. The test video is a single scene. Human label correction,
 independent footage rights verification, additional scenes and edge hardware
 measurements are needed before treating these ML results as product accuracy.
+
+## Small human ground-truth audit
+
+The selected model's fixed-threshold validation triage found 91 matched boxes,
+1,124 missed boxes and 266 extra boxes at confidence 0.25 and IoU 0.5.
+All 1,124 misses have label width below 8 pixels. These operating-point
+counts are not mAP or a new test score. To limit manual correction work,
+the [review manifest](../outputs/experiments/label_review_manifest.json)
+selects 60 evenly spaced validation frames: 20 without a prediction, 20
+nearby boxes that miss IoU, all 8 extra-box-only cases and 12 matched-only
+examples. It includes image/label hashes and **no copyrighted images**.
+
+```bash
+python scripts/export_label_review.py \
+  --dataset /path/to/grouped-shuttle \
+  --output /path/to/private-label-review
+```
+
+The export checks hashes, copies the 60 existing image/YOLO-label pairs and
+creates `review.csv`. A human should mark each as `verified`, `corrected`,
+`absent` or `uncertain`, adjust only copied labels, and return `review.csv`
+plus corrected TXT files privately. Keep the broadcast images local.
+This sample does not certify all 8,053 annotations; corrections must form a
+new dataset version and must not retroactively improve the reported held-out
+test score. New rights-cleared scenes remain necessary for credible
+deployment accuracy.
