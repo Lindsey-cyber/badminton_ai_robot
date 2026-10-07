@@ -8,11 +8,11 @@ Use Python 3.10+ and install `pip install -r requirements.txt` in a virtual envi
 
 ```bash
 python scripts/demo_pose_inference.py --input assets/demo_inputs/badminton_sample.mp4 --max-frames 100
-python scripts/demo_badminton_detection.py --input assets/demo_inputs/badminton_sample.mp4
+python scripts/demo_badminton_detection.py --input assets/demo_inputs/badminton_sample.mp4 --model /path/to/yolov8n.onnx
 python scripts/stereo_distance_demo.py --mode simulate
 ```
 
-The ball demo may download a generic YOLOv8n model. It searches the COCO `sports ball` class; its detections are not validated shuttlecock detections. The pose demo uses the checked-in `src/pose/yolov8n-pose.onnx` model. Historical HTML reports in `outputs/reports/` contain heuristic and synthetic quantities; they are not measured performance or model evaluation.
+The ball demo needs an ONNX model supplied through `--model`. It searches the COCO `sports ball` class; its detections are not validated shuttlecock detections. The pose demo uses the checked-in `src/pose/yolov8n-pose.onnx` model. Historical HTML reports in `outputs/reports/` contain heuristic and synthetic quantities; they are not measured performance or model evaluation.
 
 The ball demo defaults to COCO class 32. Class 0 in that model is **person**. If you supply a separately trained one-class shuttlecock model, pass `--model path/to/model.onnx --class-id 0` after verifying the model's output class mapping. Tracking and apparent speed calculations live in `src/badminton_ai/tracking.py`. A court-width pixel scale cannot recover the 3D speed of a flying shuttle; its converted speed is an approximation, not a measured physical speed.
 
@@ -28,7 +28,7 @@ python scripts/benchmark.py --input assets/demo_inputs/badminton_sample.mp4 --mo
 
 The ball command needs a model already present at the specified path. The benchmark never silently downloads one. Reports include source reported FPS, measured processing throughput, p50/p95 ONNX `session.run` time, p50/p95 inference including preprocessing and postprocessing, p50/p95 read-start-to-result time, process CPU and RSS. Warmup and model loading are excluded. This sequential baseline has no bounded queue or driver frame counter, so dropped-frame rate and true exposure-to-result latency are `null`, **not zero**. File throughput is not camera FPS. Reports are environment-specific and no Raspberry Pi numbers are claimed here.
 
-The separate `demo_badminton_detection.py` can download a generic COCO ONNX model when absent. It selects COCO class 32 by default, clips boxes to the image and applies per-class IoU suppression to raw YOLO predictions (`--iou` defaults to 0.45). This fixes overlapping duplicate predictions, but there is no labeled shuttlecock evaluation and no checked-in ball model to benchmark the change here. For a future one-class exported model, pass its path and `--class-id 0` explicitly.
+The separate `demo_badminton_detection.py` requires an existing ONNX model via `--model`. Its old automatic download URL returned 404 and was removed. It selects COCO class 32 by default, clips boxes to the image and applies per-class IoU suppression to raw YOLO predictions (`--iou` defaults to 0.45). This fixes overlapping duplicate predictions, but there is no labeled shuttlecock evaluation and no checked-in ball model to benchmark the change here. For a future one-class exported model, pass its path and `--class-id 0` explicitly. See the [dataset guide](docs/shuttle_dataset.md) for an official pretrained export command.
 
 ## Bounded pipeline replay
 
@@ -130,9 +130,14 @@ Install `requirements-dev.txt` and run `python -m pytest tests -q`. GitHub Actio
 
 ## Shuttlecock training data
 
-No labeled shuttlecock dataset exists in the repository; the generic COCO sports-ball model is not fine-tuned. The [dataset guide](docs/shuttle_dataset.md) defines the one-class train/val/test layout and the validation command that generates an actual Ultralytics `data.yaml` once real labels are supplied. Exact duplicate images and malformed boxes are rejected, but nearby frames from a single video must be grouped by recording before splitting. No accuracy metric has been measured.
+An [audit of public shuttlecock data](docs/public_data_audit.md) identifies a downloadable 8,053-image export and re-splits its three filename-derived source videos to avoid neighboring-frame leakage. The professional broadcast footage rights remain unresolved; no data images or training weights are published here. [Resume evidence](docs/RESUME_EVIDENCE.md) separates measured software benchmarks from provisional ML and unmeasured Raspberry Pi results.
+The [experiment record](docs/shuttle_experiments.md) contains a real COCO sports-ball pretrained baseline, a two-epoch YOLOv8n V1, a negative V2 scale-ablation result and a separately reproduced V1 model. Selection used video group 1; the selected recovered model was evaluated once on held-out video group 3. Reports include dataset/model hashes, ONNX raw-output parity and an explicit rights/annotation caveat. The reproduced validation score differs from the original V1 run, so neither is presented as a stable accuracy claim.
 
-`scripts/train_shuttle.py` is the runnable fine-tuning, held-out evaluation and fixed-shape ONNX export entry point once labeled data is available. It writes a report with measured test metrics and model hashes only after a real training run. Use `--class-id 0` with the exported one-class model in the ball demo and benchmarks; the generic COCO model uses class 32. Export compatibility is checked before writing the report. Target-device inference latency still requires a separate benchmark; no trained weights or training result is claimed here.
+No labeled shuttlecock dataset is checked into the repository. The [dataset guide](docs/shuttle_dataset.md) defines the one-class train/val/test layout and dataset validation. `scripts/prepare_public_shuttle_dataset.py` reconstructs a source-group split from a separately acquired public export. It checks exact duplicate images and malformed boxes; only three source groups are available, and the tiny fixed-size annotation boxes still need human review.
+
+For a small ground-truth audit, [the experiment record](docs/shuttle_experiments.md#small-human-ground-truth-audit) provides a 60-image, hash-checked validation review manifest. `scripts/export_label_review.py` copies the existing image/label pairs into a private local correction folder and creates a decision CSV. No broadcast images are checked into Git.
+
+`scripts/train_shuttle.py` fine-tunes, evaluates on validation and exports fixed-shape ONNX with hashes and a local report. `scripts/evaluate_shuttle_model.py --split test` was run once after validation-based selection. Use `--class-id 0` with a one-class exported model in the existing ball demo and benchmarks; the generic COCO model uses class 32. `scripts/check_onnx_parity.py` compares raw source and ONNX outputs plus final detections using the existing preprocessing and postprocessing. The selected ONNX ran in the [bounded pipeline replay](outputs/benchmarks/v1_selected_cloud_pipeline.json) on x86 recorded video. Target-device inference latency requires a separate Raspberry Pi benchmark; provisional weights and broadcast frames are not checked in.
 
 The old self-installing `setup_and_fix.py` and heuristic HTML report generator were removed. The former could download or overwrite model files as a side effect; the latter substituted assumed quantities, including shuttle speed, and its demo generated synthetic metrics. Install from the explicit requirements files and use the measured JSON tools above. Existing HTML artifacts remain as historical examples with [provenance notes](outputs/reports/README.md).
 
