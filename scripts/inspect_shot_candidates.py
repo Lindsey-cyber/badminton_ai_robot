@@ -13,7 +13,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from badminton_ai.events import (CandidateEventProcessor, EventDispatcher, EventType,
                                  SessionEventEmitter, ShotCandidateDetector)
 from badminton_ai.storage import EventStore
-from benchmark import make_detector, report_path
+from benchmark import file_sha256, make_detector, report_path
 
 
 def main() -> int:
@@ -78,6 +78,8 @@ def main() -> int:
     report = {
         "session_id": emitter.session_id,
         "input": report_path(args.input),
+        "input_sha256": file_sha256(args.input),
+        "model_sha256": file_sha256(args.model),
         "processed_frames": processed,
         "source_reported_fps": fps,
         "candidate_count": len(events),

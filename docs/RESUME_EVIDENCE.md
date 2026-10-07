@@ -51,6 +51,10 @@ separates software throughput from model accuracy and target-hardware claims.
 No Pi FPS, physical camera latency, shot-event precision/recall, or real robot
 reliability figure has been measured. Label quality and source-media rights
 prevent marketing the provisional held-out ML scores as product accuracy.
+The sequential shot-candidate report and full-clip human annotation template
+can now be scored with `scripts/evaluate_shot_candidates.py`, but no reviewed
+contact frames have been supplied. Its tests cover matching and incomplete
+annotation rejection; they do not establish real-video event performance.
 
 Resume wording should identify **cloud recorded-video replay**, its input and
 timing boundary. Add ML numbers only after a licensed, checked dataset, an
