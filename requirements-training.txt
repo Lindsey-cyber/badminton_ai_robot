@@ -1,4 +1,6 @@
 -r requirements.txt
-# Install only on the machine used for model training/export.
-ultralytics>=8.3.0,<9
-onnx>=1.16,<2
+# Versions used for the recorded CPU training and fixed-shape ONNX export.
+# Install a PyTorch build appropriate for CPU/CUDA separately if needed.
+ultralytics==8.4.174
+onnx==1.23.2
+onnxruntime==1.30.0

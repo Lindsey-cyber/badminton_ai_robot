@@ -10,5 +10,3 @@ Pillow>=12.0.0
 requests>=2.32.0
 imageio>=2.37.0
 opencv-python-headless>=4.0.0
-
-# Training-only dependencies will be specified when a labeled dataset exists.
