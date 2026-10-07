@@ -59,7 +59,7 @@ def main() -> None:
         image = cv2.imread(str(image_path))
         if image is None:
             raise RuntimeError(f"Cannot decode {image_path}")
-        tensor, *_ = detector.preprocess(image)
+        tensor, *geometry = detector.preprocess(image)
         with torch.inference_mode():
             native = model.model(torch.from_numpy(tensor))
             if isinstance(native, tuple):
@@ -70,8 +70,21 @@ def main() -> None:
         if native.shape != exported.shape:
             raise RuntimeError(f"Model output shape mismatch: {native.shape} vs {exported.shape}")
         diff = np.abs(native - exported)
+        source_boxes = detector.postprocess([native], *geometry)
+        onnx_boxes = detector.postprocess([exported], *geometry)
+        paired = zip(source_boxes, onnx_boxes)
+        box_differences = [max(abs(a - b) for a, b in zip(source["bbox"], converted["bbox"]))
+                           for source, converted in paired]
+        score_differences = [abs(source["score"] - converted["score"])
+                             for source, converted in zip(source_boxes, onnx_boxes)]
         samples.append({"image": image_path.name,
-                        "max_abs": float(diff.max()), "mean_abs": float(diff.mean())})
+                        "max_abs": float(diff.max()), "mean_abs": float(diff.mean()),
+                        "source_detections": len(source_boxes),
+                        "onnx_detections": len(onnx_boxes),
+                        "class_ids_match": ([d["class_id"] for d in source_boxes] ==
+                                            [d["class_id"] for d in onnx_boxes]),
+                        "max_paired_bbox_abs_px": max(box_differences, default=0.0),
+                        "max_paired_score_abs": max(score_differences, default=0.0)})
     worst = max(row["max_abs"] for row in samples)
     report = {"recorded_at_utc": datetime.now(timezone.utc).isoformat(),
               "pt_sha256": digest(args.weights), "onnx_sha256": digest(args.onnx),
@@ -79,8 +92,13 @@ def main() -> None:
               "max_abs_tolerance": args.max_abs_tolerance,
               "worst_max_abs": worst,
               "median_mean_abs": statistics.median(row["mean_abs"] for row in samples),
+              "final_count_mismatch_images": sum(row["source_detections"] != row["onnx_detections"]
+                                                 for row in samples),
+              "final_class_mismatch_images": sum(not row["class_ids_match"] for row in samples),
+              "max_paired_bbox_abs_px": max(row["max_paired_bbox_abs_px"] for row in samples),
+              "max_paired_score_abs": max(row["max_paired_score_abs"] for row in samples),
               "samples": samples,
-              "comparison": "Same existing detector preprocessing; raw [1,5,N] output before NMS",
+              "comparison": "Same existing detector preprocessing and postprocessing; raw [1,5,N] output and final boxes at detector default confidence 0.20",
               "pass": worst <= args.max_abs_tolerance}
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
