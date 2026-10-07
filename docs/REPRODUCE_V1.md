@@ -1,10 +1,11 @@
 # Reproduce the selected V1 model on stable compute
 
 The temporary cloud workspace disconnected twice during CPU training and erased
-uncommitted weights. V1 beat the completed V2 scale ablation on validation
-mAP50-95 (0.00658 versus 0.00454), but the original V1 weights are gone.
-This recipe recreates V1; the source-group test set remains untouched until
-the new validation result is checked.
+the original V1 weights. A later CPU run completed with the same dataset and
+starting weights hashes, but its validation mAP50-95 was 0.005409 rather than
+the original 0.00658. It still exceeded V2's 0.004539, so this recovered V1
+was selected before the one-time held-out test evaluation. This recipe
+recreates that training configuration; short runs can vary.
 
 Use a persistent Linux machine with Python 3.12, enough disk for the ~1.6 GB
 source mirror, and preferably a CUDA GPU. The public mirror's underlying
@@ -48,13 +49,9 @@ checks its layout, and writes
 `outputs/training/v1_reproduced/training_report.json`. Keep
 `weights/best.pt` and `weights/best.onnx` private; do not commit media or
 model files. The original V1 validation row was P 0.16384, R 0.14650,
-mAP50 0.05382, mAP50-95 0.00658. GPU arithmetic can differ slightly; report
-actual values rather than copying these.
-
-Send back the dataset hash and these files from
-`outputs/training/v1_reproduced/`: `training_report.json`, `args.yaml`,
-`results.csv`, `weights/best.pt`, and `weights/best.onnx`. The model
-files are about 6.2 MB and 12.2 MB. We can then run the existing
-`scripts/check_onnx_parity.py`, evaluate the held-out video-3 group once,
-and benchmark the selected ONNX model in `scripts/benchmark_pipeline.py`.
-No Raspberry Pi, stereo camera or robot is needed for this handoff.
+mAP50 0.05382, mAP50-95 0.00658; the recovered run measured P 0.16473,
+R 0.10453, mAP50 0.04499, mAP50-95 0.005409. GPU arithmetic can differ;
+report actual values rather than copying these. The exact recovered run,
+ONNX parity, held-out test and existing-pipeline benchmark reports are linked
+from [the experiment record](shuttle_experiments.md). Raspberry Pi, stereo
+camera and robot hardware are not involved in this reproduction.
