@@ -27,6 +27,36 @@ separates software throughput from model accuracy and target-hardware claims.
 - The local suite passed 35 tests after the validation error-analysis and ONNX
   comparison tools were added. This is a software test count, not model accuracy.
 
+## Closed-loop software evidence
+
+- The optional simulation-only policy connects pose candidates to accepted MOVE
+  and LAUNCH commands, SimulatedRobot state transitions and the existing
+  ordered SQLite event stream. The existing WebSocket reads that same log.
+  A synthetic-pose integration test crosses the bounded pipeline, event
+  processor, policy, simulator and storage. This validates software wiring,
+  not real shot recognition or motor safety.
+- The camera benchmark entry point now uses the existing bounded pipeline;
+  its source adapter and CLI report were tested with a fake camera. No Pi
+  timing or real camera reliability number is available. In this workspace,
+  26 focused software tests passed; the complete suite and real-model replay
+  could not be rerun because the retained visual dependencies failed to load
+  and package installation was blocked.
+
+### Resume bullet drafts (scope must stay explicit)
+
+- Built a bounded producer/consumer ONNX video pipeline that kept the latest
+  frames under load; on a 200-frame, 24-FPS x86 recorded replay it processed
+  153 frames at 18.048 FPS with 145.151 ms p95 read-to-output latency and
+  23.5% software queue drops.
+- Connected pose-based shot **candidates** to a rule-based, simulation-only
+  robot controller and ordered SQLite events; command ACKs and state changes
+  are exposed through the local event API and WebSocket replay.
+- Fine-tuned and evaluated a one-class YOLOv8n shuttlecock detector on
+  source-grouped public data, exported ONNX and checked 100-image
+  postprocessed parity before benchmarking in the existing pipeline.
+  Mention provisional label and footage-rights limitations when discussing
+  the ML experiment; do not pitch its accuracy as deployment-ready.
+
 ## Provisional ML experiments, not resume accuracy claims
 
 - A source-grouped public shuttlecock dataset and COCO-pretrained baseline were

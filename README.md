@@ -1,6 +1,58 @@
-# Real-Time Edge AI Badminton Training System (in progress)
+# Real-Time Edge AI Badminton Training System
 
-The repository currently contains **offline vision demos and data collection tools**, not an integrated real-time training system. See [the repository audit](docs/repository_audit.md) for an evidence-based inventory and the staged engineering plan. No shuttlecock fine-tuning or Raspberry Pi result has been verified.
+A **recorded-video software prototype** for edge vision and badminton training. It runs pose inference through a bounded latest-frame queue, emits unverified shot candidates, applies an optional simulation-only training rule, and records robot commands and state in SQLite for HTTP/WebSocket replay. A separately fine-tuned one-class shuttlecock model has been exported to ONNX and tested in the same bounded pipeline. **No Raspberry Pi, live stereo, physical robot, or verified shot-accuracy result is claimed.**
+
+## What is implemented
+
+| Path | Evidence |
+| --- | --- |
+| Video → bounded capture → ONNX inference | Old frames are dropped under load; source sequence, queue depth, FPS, latency, CPU and RSS are measured. |
+| Pose → wrist-peak candidate → rule → SimulatedRobot | Optional rule chooses the opposite court side, moves, then simulates a launch. It cannot accept a hardware robot. |
+| Events → SQLite → WebSocket | Ordered candidates, performance snapshots, command ACKs and robot state changes share one session log; reconnects replay by sequence. |
+| Shuttle ML lifecycle | Source-grouped public data → COCO baseline → YOLOv8n V1/V2 → held-out evaluation → ONNX parity → bounded replay. Footage rights and labels still need review. |
+
+```mermaid
+flowchart TD
+    V["Recorded video"] --> C["Capture"]
+    C --> Q["Bounded latest-frame queue"]
+    Q --> P["Pose ONNX inference"]
+    P --> E["Shot candidate event"]
+    E --> R["Simulation-only training rule"]
+    R --> S["SimulatedRobot"]
+    E --> D["SQLite event log"]
+    S --> D
+    D --> W["HTTP / WebSocket replay"]
+```
+
+The separately evaluated shuttlecock ONNX detector uses the same capture/queue/inference path in **ball mode**; it is not fused with the pose rule above. The latter deliberately treats wrist peaks as candidates, not confirmed racket contacts.
+
+## 60–90 second software demo
+
+After one-time dependency setup, use Python 3.10+ in a virtual environment from the repository root:
+
+```bash
+python -m pip install -r requirements-api.txt
+python scripts/run_training.py --input assets/demo_inputs/badminton_sample.mp4 \
+  --frames 200 --queue-size 2 --threshold-px-s 300 --simulate-robot \
+  --db outputs/demo_events.sqlite3 --output outputs/demo_run.json
+python scripts/run_api.py --db outputs/demo_events.sqlite3
+```
+
+The first command writes the session ID and bounded-pipeline metrics to `outputs/demo_run.json`. In a second terminal, replace `SESSION_ID` with that ID:
+
+```bash
+curl http://127.0.0.1:8000/sessions/SESSION_ID/events
+```
+
+To show the WebSocket replay, open a browser console and run `const ws = new WebSocket("ws://127.0.0.1:8000/sessions/SESSION_ID/stream"); ws.onmessage = e => console.log(JSON.parse(e.data))`. The command/state events are simulation results. Candidate counts depend on frames retained under load; the run report is the source of truth. The API is local and unauthenticated.
+
+## Measured results and limits
+
+The selected one-class ONNX model, replayed from a 24-FPS recording on an **x86 cloud container**, captured 200 frames, processed 153 at 18.048 FPS and dropped 47 old software-queue frames (23.5%). Inference p50/p95 was 54.900/74.917 ms; read-completion-to-output p50/p95 was 116.121/145.151 ms; process RSS p95 was 267.855 MB. [Raw report](outputs/benchmarks/v1_selected_cloud_pipeline.json). These are not Pi or camera-exposure measurements.
+
+The two-epoch recovered YOLOv8n V1 measured held-out mAP50 **0.09593** and mAP50-95 **0.01150** on one source video; its score differed from the original V1 reproduction, and the broadcast footage rights and tiny boxes need review. The [experiment record](docs/shuttle_experiments.md) gives baseline, V2 negative ablation, weights/dataset hashes and sampled PyTorch↔ONNX parity. Neither those scores nor wrist peaks establish deployment accuracy. [Resume evidence](docs/RESUME_EVIDENCE.md) lists only defensible numbers.
+
+CI runs software tests, including a checked-in video/pose-model replay, without Pi hardware. In this workspace, 26 focused pipeline/event/simulator/evaluation tests passed; the complete suite and a fresh model replay could not be rerun because the retained visual dependencies are corrupted and package download is unavailable. Hardware validation commands and precise measurement boundaries are in [the Pi handoff](docs/PI_BENCHMARK.md). The [minimal human contact review](docs/HUMAN_REVIEW.md) is still pending; no shot Precision/Recall/F1 has been measured.
 
 ## Run the existing demos
 
@@ -74,7 +126,7 @@ For a single bounded replay from recording through pose inference, candidate det
 python scripts/run_training.py --input assets/demo_inputs/badminton_sample.mp4 --frames 200 --queue-size 2 --threshold-px-s 300 --db outputs/events.sqlite3 --output outputs/training_replay.json
 ```
 
-The report includes captured/processed FPS, p50/p95 read-to-output and inference time, dropped software frames, queue depth, CPU, RSS and the new session ID. Use a new session ID per replay. Event writes happen in the same output callback as the vision pipeline, so its read-to-output latency includes candidate processing and SQLite commits. Periodic `PerformanceMetric` events record windowed FPS, inference/read-to-output p50/p95, queue depth, drops, CPU and RSS in the same ordered SQLite log. The existing WebSocket replays and streams both event types. If the API is down, replay still records events locally; the API can read them after restart. No robot action is issued from an unverified wrist peak.
+The report includes captured/processed FPS, p50/p95 read-to-output and inference time, dropped software frames, queue depth, CPU, RSS and the new session ID. Use a new session ID per replay. Event writes happen in the same output callback as the vision pipeline, so its read-to-output latency includes candidate processing and SQLite commits. Periodic `PerformanceMetric` events record windowed FPS, inference/read-to-output p50/p95, queue depth, drops, CPU and RSS in the same ordered SQLite log. The existing WebSocket replays and streams both event types. If the API is down, replay still records events locally; the API can read them after restart. Only the optional simulation-only rule can issue commands from an unverified wrist peak; no physical robot is controlled.
 
 One [raw integrated cloud replay](outputs/benchmarks/cloud_training_replay.json) processed 164 of 200 recorded frames at 19.512 FPS with 36 software drops and read-to-output p50/p95 of 104.220/140.959 ms. It persisted five **unverified** candidates. A separate local run on the same video processed 146 frames and yielded two candidates; CPU load and timing affect which frames survive, so candidate counts are not deterministic under backpressure. These cloud measurements are not Pi results or shot accuracy, and the corresponding local SQLite databases are not published.
 
@@ -122,7 +174,7 @@ python scripts/run_api.py --db outputs/events.sqlite3
 
 `GET /health`, `GET /sessions`, `GET /sessions/{session_id}/events?after_sequence=-1&limit=100`, `POST /sessions`, and `POST /events` expose the stored candidate log. The POST event body includes `event_id`, `session_id`, nonnegative `sequence`, timezone-aware `timestamp_utc`, `type: "ShotCandidate"`, and `payload`. An identical retry returns `{"inserted": false}`; an ID or order conflict returns HTTP 409. `ws://127.0.0.1:8000/sessions/{session_id}/stream?after_sequence=-1` first replays stored events, then checks SQLite every 250 ms for new ones. Reconnect with the last received sequence to resume without a gap. A video analysis process can continue writing SQLite while the API or a client is disconnected. Start the API only on a trusted local interface: authentication and remote deployment have not been implemented.
 
-The API streams **candidate and windowed performance events**, not confirmed shots, live images, player/shuttle positions or robot telemetry. Polling a durable local log is sufficient for this single-machine setup; there is no measured need for a message broker. The additional API tests require `requirements-api.txt`; the vision and simulator tests do not.
+The API streams **candidates and windowed performance events**, plus simulated robot commands and state changes when `--simulate-robot` is enabled. It does not stream confirmed shots, live images or physical robot telemetry. Polling a durable local log is sufficient for this single-machine setup; there is no measured need for a message broker. The additional API tests require `requirements-api.txt`; the vision and simulator tests do not.
 
 ## Software CI
 
