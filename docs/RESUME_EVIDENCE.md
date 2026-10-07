@@ -17,10 +17,11 @@ separates software throughput from model accuracy and target-hardware claims.
   these two latencies must not be presented as a speedup comparison.
 - The selected one-class ONNX model ran through the **existing bounded
   pipeline** on the same 200-frame, 24-FPS x86 recorded-video replay. It
-  processed 153 frames at 18.048 FPS and dropped 47 old software-queue
+  captured at 24.119 FPS, processed 153 frames at 18.048 FPS and dropped 47 old software-queue
   frames (23.5%); inference p50/p95 was 54.900/74.917 ms and
   read-completion-to-output p50/p95 was 116.121/145.151 ms. Process RSS
-  p95 was 267.855 MB. See the [raw report](../outputs/benchmarks/v1_selected_cloud_pipeline.json).
+  p95 was 267.855 MB; process CPU was 789.65% on a one-core-100 scale. See
+  the [raw report](../outputs/benchmarks/v1_selected_cloud_pipeline.json).
   This is not a Pi or physical-camera measurement; do not compare its
   latency directly with the sequential run's different timing boundary.
 - The local suite passed 35 tests after the validation error-analysis and ONNX
@@ -38,8 +39,10 @@ separates software throughput from model accuracy and target-hardware claims.
   claim. The reproduced V1 score differs from the original V1 score.
 - The recovered V1 PyTorch-to-ONNX raw output comparison passed on 20 real
   validation images: worst absolute difference 0.003204 against a 0.05
-  tolerance. This is pre-NMS numerical parity, not accuracy or exact
-  postprocessed-detection parity; see the [raw report](../outputs/experiments/v1_onnx_parity.json).
+  tolerance. An expanded [100-image report](../outputs/experiments/v1_onnx_parity_postprocess.json)
+  measured 47 detections for each version, no count/class mismatches and
+  maximum paired coordinate difference 0.000061 pixels after the same
+  detector postprocessing. This sampled parity is not model accuracy.
 - The underlying broadcast footage rights remain unverified, and tiny
   fixed-size boxes need broader human review. Do not publish media or weights.
 

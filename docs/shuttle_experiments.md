@@ -134,16 +134,22 @@ Its fixed 640px, raw one-class ONNX export is 12,238,809 bytes. The
 [parity report](../outputs/experiments/v1_onnx_parity.json) compares
 pre-NMS outputs on 20 validation images using the existing detector's exact
 preprocessing tensor. Worst absolute difference was 0.003204, below the
-predeclared 0.05 tolerance. This checks raw numerical compatibility, not
-equivalence of every final detection after NMS.
+predeclared 0.05 tolerance. An expanded
+[final-detection report](../outputs/experiments/v1_onnx_parity_postprocess.json)
+compares 100 validation images with the same existing preprocessing and
+postprocessing at confidence 0.20. Each version produced 47 detections;
+there were no count or class mismatches, maximum paired box-coordinate
+difference was 0.000061 pixels and worst raw-output difference was 0.004028.
+This sampled comparison does not establish parity for every possible frame.
 
 The selected ONNX was passed directly to the existing bounded
 `scripts/benchmark_pipeline.py --mode ball --class-id 0` path on a
 24-FPS recorded video. Its [raw benchmark](../outputs/benchmarks/v1_selected_cloud_pipeline.json)
-records 200 captured, 153 processed, 47 software queue drops (23.5%),
-18.048 processed FPS, inference p50/p95 54.900/74.917 ms,
+records 200 captured at 24.119 captured FPS, 153 processed, 47 software
+queue drops (23.5%), 18.048 processed FPS, inference p50/p95 54.900/74.917 ms,
 read-completion-to-output p50/p95 116.121/145.151 ms, process RSS p95
-267.855 MB and a maximum queue depth of 2. The benchmark ran on an x86
+267.855 MB, process CPU utilization 789.65% on a one-core-100 scale,
+and a maximum queue depth of 2. The benchmark ran on an x86
 cloud container, not a Raspberry Pi; its timing starts after frame decode,
 not at physical camera exposure.
 
