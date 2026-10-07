@@ -9,9 +9,12 @@ sequential run were frames 23, 29, 75, 123 and 138. They are **not labels**.
 
 Send just two things privately:
 
-1. A sorted list of zero-based contact frame numbers, e.g. `42, 91`.
+1. A sorted list of contact times in seconds, e.g. `1.75, 3.79`, or
+   zero-based frame numbers, e.g. `42, 91`. We can convert timestamps to
+   frame indices at 24 FPS; note that a coarse player timestamp adds timing
+   uncertainty.
 2. Any intervals where contact is not visible or is ambiguous, e.g.
-   `frames 70-85 unclear`. If the whole clip cannot be reviewed, say so.
+   `3.0-3.5 s unclear`. If the whole clip cannot be reviewed, say so.
 
 Do not guess an uncertain contact or mark the review complete from candidate
 hints alone. Once the full interval is reviewed, the existing
