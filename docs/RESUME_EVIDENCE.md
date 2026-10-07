@@ -15,16 +15,25 @@ separates software throughput from model accuracy and target-hardware claims.
 - The corresponding sequential run processed 200 frames at 17.732 FPS with
   read-start-to-result p50/p95 54.768/71.763 ms. Its timing boundary differs;
   these two latencies must not be presented as a speedup comparison.
-- The local suite passed 33 tests after the windowed metrics and raw-YOLO box
-  suppression changes (2026-10-05). This is a software test count, not model accuracy.
+- The local suite passed 35 tests after the validation error-analysis and ONNX
+  comparison tools were added. This is a software test count, not model accuracy.
+
+## Provisional ML experiments, not resume accuracy claims
+
+- A source-grouped public shuttlecock dataset and COCO-pretrained baseline were
+  measured; a two-epoch YOLOv8n V1 and one-factor V2 scale ablation were
+  genuinely trained and validated. Their hashes and results are in the
+  [experiment record](shuttle_experiments.md). V1 validation mAP50-95 was
+  0.00658; V2 was 0.00454 on one video group. These low, scene-dependent
+  values should not appear as a success claim.
+- The underlying broadcast footage rights remain unverified, and tiny
+  fixed-size boxes need broader human review. Do not publish media or weights.
 
 ## Not yet supported
 
-No YOLO fine-tuning, shuttlecock precision/recall/mAP, source-to-ONNX parity,
-Pi FPS, live camera latency, shot-event precision/recall, or real robot reliability
-figures have been measured. The [public data audit](public_data_audit.md)
-documents provisional source counts and unresolved media rights; those counts
-must not become model-performance or legally cleared dataset claims.
+No selected-model source-to-ONNX parity, held-out group test, fine-tuned
+bounded-pipeline benchmark, Pi FPS, live camera latency, shot-event
+precision/recall, or real robot reliability figure has been measured yet.
 
 Resume wording should identify **cloud recorded-video replay**, its input and
 timing boundary. Add ML numbers only after a licensed, checked dataset, an

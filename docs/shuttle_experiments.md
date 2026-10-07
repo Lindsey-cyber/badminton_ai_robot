@@ -90,3 +90,24 @@ V2 changes one factor: disable random scale augmentation (`scale=0.1` →
 uses the same pretrained initialization, source split, seed, batch, input size,
 and two epochs. Compare V1/V2 on validation only before choosing one for a
 single held-out test evaluation.
+
+## V2 result and selection
+
+V2 finished two epochs on the same source-group split and initial COCO weights.
+Its raw [validation report](../outputs/experiments/v2_val_report.json) records
+the model, dataset, configuration and export hashes. The validation experiment
+did **not** support turning off scale augmentation:
+
+| Model, selected epoch | Precision | Recall | mAP50 | mAP50-95 |
+| --- | ---: | ---: | ---: | ---: |
+| V1, epoch 2 | 0.16384 | 0.14650 | 0.05382 | 0.00658 |
+| V2, epoch 2 | 0.19567 | 0.09300 | 0.03894 | 0.00454 |
+
+The separate V2 `best.pt` validation measured P 0.19652, R 0.09383,
+mAP50 0.03889 and mAP50-95 0.004539. The small difference from the epoch
+row is a separate validator invocation; both favor V1 on the predeclared
+mAP50-95 criterion. The original V1 weights were lost when the temporary
+execution environment reset. A same-parameter V1 reproduction was interrupted
+by another execution outage before its second epoch completed. No selected
+model's held-out test, ONNX parity or bounded-pipeline benchmark is claimed.
+This is a negative ablation result, not production readiness.
