@@ -1,0 +1,74 @@
+{
+  "recorded_at_utc": "2026-10-07T09:20:54.106745+00:00",
+  "dataset_yaml": "data.yaml",
+  "dataset_manifest_sha256": "ea425c0b15fa2cd1ae97432ddcd9aae8abca18839ec542edf663974de306bdcd",
+  "dataset_sha256": "89f6f74fe229baef12d5ac532de4ff4add047bfbcd7373b37d2bdf891bf61071",
+  "splits": {
+    "train": {
+      "images": 5391,
+      "boxes": 5322
+    },
+    "val": {
+      "images": 1215,
+      "boxes": 1215
+    },
+    "test": {
+      "images": 1447,
+      "boxes": 1447
+    }
+  },
+  "starting_weights": "yolov8n.pt",
+  "starting_weights_sha256": "f59b3d833e2ff32e194b5bb8e08d211dc7c5bdf144b90d2c8412c47ccfc83b36",
+  "epochs": 2,
+  "imgsz": 640,
+  "batch": 8,
+  "workers": 0,
+  "run_name": "v1_reproduced",
+  "device": "cpu",
+  "seed": 42,
+  "warmup_epochs": 0.1,
+  "augmentations": {
+    "mosaic": 0.0,
+    "scale": 0.1,
+    "fliplr": 0.5,
+    "flipud": 0.0
+  },
+  "ultralytics": "8.4.174",
+  "torch": "2.14.1+cpu",
+  "validation_precision": 0.16472759739995657,
+  "validation_recall": 0.10452674897119342,
+  "validation_map50": 0.04498943289413458,
+  "validation_map50_95": 0.005409426671711907,
+  "best_pt": "v1_reproduced/weights/best.pt",
+  "best_pt_sha256": "24018c406364489290ff0fd5b17ecaa3801cf0109dd54ec89168b05e8b4d412e",
+  "train_args_yaml_sha256": "0e5b4cc0443c569a36cf992020f3c064bf86a89272b2639546c01b4536debf68",
+  "onnx": "v1_reproduced/weights/best.onnx",
+  "onnx_sha256": "22748b60b420b70a7b3cb7f42a8db48d0e78a64565f9fd312c61f23c3ca16780",
+  "onnx_size_bytes": 12238809,
+  "inference_latency_ms": null,
+  "latency_note": "Run scripts/benchmark.py with this ONNX file on the target hardware.",
+  "results_csv_sha256": "8d5d48f7beb18d6ed07a5bb64e9e38258bcd6ac3f25553c792f3fa55df1224e8",
+  "epoch_metrics": [
+    {
+      "epoch": 1.0,
+      "metrics/precision(B)": 0.17672,
+      "metrics/recall(B)": 0.07572,
+      "metrics/mAP50(B)": 0.03102,
+      "metrics/mAP50-95(B)": 0.00394
+    },
+    {
+      "epoch": 2.0,
+      "metrics/precision(B)": 0.16623,
+      "metrics/recall(B)": 0.10453,
+      "metrics/mAP50(B)": 0.04484,
+      "metrics/mAP50-95(B)": 0.00539
+    }
+  ],
+  "selection": "V1 recipe; actual recovered best.pt beats V2 on validation mAP50-95; no test used in selection",
+  "limitations": [
+    "Reproduction differs from original V1 validation despite same dataset and starting weights hashes",
+    "One validation video group with tiny fixed-size labels",
+    "Underlying broadcast footage rights unverified",
+    "No Raspberry Pi measurement"
+  ]
+}
