@@ -1,0 +1,30 @@
+{
+  "recorded_at_utc": "2026-10-07T09:23:30.107529+00:00",
+  "split": "test",
+  "images": 1447,
+  "boxes": 1447,
+  "dataset_manifest_sha256": "ea425c0b15fa2cd1ae97432ddcd9aae8abca18839ec542edf663974de306bdcd",
+  "dataset_sha256": "89f6f74fe229baef12d5ac532de4ff4add047bfbcd7373b37d2bdf891bf61071",
+  "weights_sha256": "24018c406364489290ff0fd5b17ecaa3801cf0109dd54ec89168b05e8b4d412e",
+  "weights_size_bytes": 6243434,
+  "python": "3.12.14",
+  "torch": "2.14.1+cpu",
+  "ultralytics": "8.4.174",
+  "imgsz": 640,
+  "batch": 8,
+  "device": "cpu",
+  "precision": 0.21747526378513418,
+  "recall": 0.19281271596406357,
+  "map50": 0.09593093171496965,
+  "map50_95": 0.011502308311535005,
+  "validation_speed_ms": {
+    "preprocess": 0.7883254084298734,
+    "inference": 27.51728490048426,
+    "loss": 0.0001681492740920877,
+    "postprocess": 0.24346462750501674
+  },
+  "limitations": [
+    "Rights of the underlying broadcast footage remain unverified.",
+    "Fixed-size annotation boxes may not trace actual shuttle extent."
+  ]
+}
