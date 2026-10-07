@@ -1,0 +1,72 @@
+{
+  "recorded_at_utc": "2026-10-07T01:31:59.295457+00:00",
+  "dataset_yaml": "data.yaml",
+  "dataset_manifest_sha256": "ea425c0b15fa2cd1ae97432ddcd9aae8abca18839ec542edf663974de306bdcd",
+  "dataset_sha256": "89f6f74fe229baef12d5ac532de4ff4add047bfbcd7373b37d2bdf891bf61071",
+  "splits": {
+    "train": {
+      "images": 5391,
+      "boxes": 5322
+    },
+    "val": {
+      "images": 1215,
+      "boxes": 1215
+    },
+    "test": {
+      "images": 1447,
+      "boxes": 1447
+    }
+  },
+  "starting_weights": "yolov8n.pt",
+  "starting_weights_sha256": "f59b3d833e2ff32e194b5bb8e08d211dc7c5bdf144b90d2c8412c47ccfc83b36",
+  "epochs": 2,
+  "imgsz": 640,
+  "batch": 8,
+  "workers": 0,
+  "run_name": "v2_no_scale",
+  "device": "cpu",
+  "seed": 42,
+  "warmup_epochs": 0.1,
+  "augmentations": {
+    "mosaic": 0.0,
+    "scale": 0.0,
+    "fliplr": 0.5,
+    "flipud": 0.0
+  },
+  "ultralytics": "8.4.174",
+  "torch": "2.14.1+cpu",
+  "validation_precision": 0.1965190866176429,
+  "validation_recall": 0.09382716049382717,
+  "validation_map50": 0.03889198708979731,
+  "validation_map50_95": 0.004539484729150969,
+  "best_pt": "v2_no_scale/weights/best.pt",
+  "best_pt_sha256": "5ec078c771ea79be45756e556ab94df74985554c47da0d6162b4c27076a07973",
+  "train_args_yaml_sha256": "047cd46658a93b9d5a80de72a099609d3fb0f06223f01bbaef721fefc9f6bb7a",
+  "onnx": "v2_no_scale/weights/best.onnx",
+  "onnx_sha256": "981996b67f4f206b40fc24bfe97fd4c6889d7efdc6605a22341b625f2a7f65f2",
+  "onnx_size_bytes": 12238809,
+  "inference_latency_ms": null,
+  "latency_note": "Run scripts/benchmark.py with this ONNX file on the target hardware.",
+  "results_csv_sha256": "c4b8b200964d81250496b5a238d698241581393aa25cf19352666aba590c51f7",
+  "epoch_metrics": [
+    {
+      "epoch": 1.0,
+      "metrics/precision(B)": 0.0221,
+      "metrics/recall(B)": 0.03951,
+      "metrics/mAP50(B)": 0.00245,
+      "metrics/mAP50-95(B)": 0.00028
+    },
+    {
+      "epoch": 2.0,
+      "metrics/precision(B)": 0.19567,
+      "metrics/recall(B)": 0.093,
+      "metrics/mAP50(B)": 0.03894,
+      "metrics/mAP50-95(B)": 0.00454
+    }
+  ],
+  "limitations": [
+    "One held-out validation video group; test sealed during selection",
+    "Underlying broadcast footage rights and tiny fixed-size labels not fully verified",
+    "No Raspberry Pi measurement"
+  ]
+}
